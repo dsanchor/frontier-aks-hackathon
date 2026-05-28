@@ -518,6 +518,22 @@
         }
 
         /* ─── Footer ────────────────────────────────────────────────────── */
+        footer {
+            padding: 2.5rem clamp(1.5rem, 8vw, 6rem);
+            display: flex; align-items: center; justify-content: space-between;
+            border-top: 1px solid var(--border); flex-wrap: wrap; gap: 1rem;
+        }
+
+        .footer-copy { font-size: .75rem; color: var(--text-3); font-family: 'Fira Code', monospace; }
+
+        .footer-links { display: flex; gap: 1.5rem; list-style: none; }
+
+        .footer-links a {
+            font-size: .72rem; color: var(--text-3); text-decoration: none;
+            font-family: 'Fira Code', monospace; transition: color .2s;
+        }
+
+        .footer-links a:hover { color: var(--cyan); }
 
         /* ─── Reveal ────────────────────────────────────────────────────── */
         .reveal { opacity: 0; transform: translateY(30px); transition: opacity .6s ease, transform .6s ease; }
@@ -1325,6 +1341,15 @@
 </section>
 
 <!-- Footer -->
+<footer>
+    <span class="footer-copy">© 2026 · Frontier AKS Hackathon · WhatTheHack</span>
+    <ul class="footer-links">
+        <li><a href="README.md">Briefing</a></li>
+        <li><a href="Coach/README.md">Coach Guide</a></li>
+        <li><a href="https://github.com/microsoft/WhatTheHack" target="_blank" rel="noopener">WhatTheHack</a></li>
+        <li><a href="https://learn.microsoft.com/azure/aks/" target="_blank" rel="noopener">AKS Docs</a></li>
+    </ul>
+</footer>
 
 <!-- Drawer overlay -->
 <div id="drawer-overlay"></div>
