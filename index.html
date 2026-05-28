@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontier AKS — What The Hack</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600;700&family=Karla:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Fira+Code:wght@300;400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* ─── Reset & Tokens ────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #03070f;
+            --surface: #0a1525;
+            --surface-2: #0f1e35;
+            --border: #1a2e4a;
+            --border-2: #243d5c;
+
+            --cyan: #00d9f5;
+            --cyan-dim: rgba(0, 217, 245, .15);
+            --cyan-glow: 0 0 24px rgba(0, 217, 245, .35);
+
+            --amber: #f5a623;
+            --amber-dim: rgba(245, 166, 35, .12);
+
+            --green: #22c55e;
+            --purple: #a78bfa;
+            --rose: #f43f5e;
+
+            /* challenge phase colors */
+            --phase-setup:    #00d9f5;
+            --phase-core:     #22c55e;
+            --phase-security: #a78bfa;
+            --phase-advanced: #f5a623;
+            --phase-ai:       #f59e0b;
+
+            --text: #dce8f5;
+            --text-2: #7a9ab8;
+            --text-3: #3a5872;
+
+            --radius: 6px;
+            --radius-lg: 12px;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Karla', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        /* ─── Typography ────────────────────────────────────────────────── */
+        .display { font-family: 'Teko', sans-serif; line-height: .9; }
+        .mono    { font-family: 'Fira Code', monospace; }
+
+        /* ─── Nav ───────────────────────────────────────────────────────── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 clamp(1rem, 5vw, 3rem); height: 60px;
+            background: rgba(3, 7, 15, .85); backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-logo {
+            display: flex; align-items: center; gap: .75rem; text-decoration: none;
+        }
+
+        .nav-logo-icon {
+            width: 30px; height: 30px; background: var(--cyan);
+            border-radius: 4px; display: grid; place-items: center;
+        }
+
+        .nav-logo-icon svg { width: 18px; height: 18px; fill: var(--bg); }
+
+        .nav-logo-text {
+            font-family: 'Teko', sans-serif; font-size: 1.1rem;
+            letter-spacing: .06em; color: var(--text);
+        }
+
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+
+        .nav-links a {
+            font-size: .75rem; letter-spacing: .12em; text-transform: uppercase;
+            color: var(--text-2); text-decoration: none; transition: color .2s;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .nav-links a:hover { color: var(--cyan); }
+
+        .nav-cta {
+            width: 38px; height: 38px; display: inline-flex; align-items: center;
+            justify-content: center; padding: 0; border: 1px solid var(--cyan);
+            color: var(--cyan); border-radius: var(--radius); text-decoration: none;
+            transition: background .2s, box-shadow .2s;
+        }
+
+        .nav-cta svg { width: 18px; height: 18px; fill: currentColor; }
+        .nav-cta:hover { background: var(--cyan-dim); box-shadow: var(--cyan-glow); }
+
+        /* ─── Hero ──────────────────────────────────────────────────────── */
+        #hero {
+            position: relative; min-height: 100svh;
+            display: flex; flex-direction: column; justify-content: center;
+            padding: 60px clamp(1.5rem, 8vw, 6rem) 0; overflow: hidden;
+        }
+
+        #hero-canvas { position: absolute; inset: 0; opacity: .35; }
+
+        .hero-scanlines {
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(to bottom,
+                transparent, transparent 2px,
+                rgba(0,0,0,.06) 2px, rgba(0,0,0,.06) 4px);
+            pointer-events: none;
+        }
+
+        .hero-vignette {
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(3,7,15,.8) 100%);
+            pointer-events: none;
+        }
+
+        .hero-content { position: relative; z-index: 1; max-width: 900px; }
+
+        .hero-label {
+            font-family: 'Fira Code', monospace; font-size: .7rem;
+            letter-spacing: .25em; text-transform: uppercase; color: var(--cyan);
+            margin-bottom: 1.5rem; display: flex; align-items: center; gap: .75rem;
+        }
+
+        .hero-label::before {
+            content: ''; display: inline-block; width: 30px; height: 1px; background: var(--cyan);
+        }
+
+        .hero-title {
+            font-family: 'Teko', sans-serif; font-size: clamp(5rem, 16vw, 13rem);
+            font-weight: 700; line-height: .85; letter-spacing: -.02em; color: #fff;
+        }
+
+        .hero-title .accent { color: var(--cyan); display: block; }
+
+        .hero-subtitle {
+            margin-top: 2rem; font-size: clamp(1rem, 2.5vw, 1.2rem);
+            line-height: 1.6; color: var(--text-2); max-width: 560px; font-weight: 300;
+        }
+
+        .hero-pills {
+            display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem;
+        }
+
+        .hero-pill {
+            display: flex; align-items: center; gap: .5rem;
+            font-family: 'Fira Code', monospace; font-size: .7rem;
+            padding: .35rem .8rem; border-radius: 99px;
+            border: 1px solid var(--border-2); background: var(--surface); color: var(--cyan);
+        }
+
+        .hero-pill .dot {
+            width: 6px; height: 6px; border-radius: 50%; background: var(--cyan);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: .4; transform: scale(.6); }
+        }
+
+        .hero-actions { display: flex; gap: 1rem; margin-top: 2.5rem; flex-wrap: wrap; }
+
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: .5rem;
+            padding: .75rem 1.75rem; background: var(--cyan); color: var(--bg);
+            font-family: 'Fira Code', monospace; font-size: .75rem;
+            letter-spacing: .1em; text-transform: uppercase; text-decoration: none;
+            border-radius: var(--radius); font-weight: 500;
+            transition: box-shadow .25s, transform .2s;
+        }
+
+        .btn-primary:hover { box-shadow: var(--cyan-glow); transform: translateY(-2px); }
+
+        .btn-secondary {
+            display: inline-flex; align-items: center; gap: .5rem;
+            padding: .75rem 1.75rem; background: transparent; color: var(--text);
+            font-family: 'Fira Code', monospace; font-size: .75rem;
+            letter-spacing: .1em; text-transform: uppercase; text-decoration: none;
+            border-radius: var(--radius); border: 1px solid var(--border-2);
+            transition: border-color .2s, background .2s;
+        }
+
+        .btn-secondary:hover { border-color: var(--text-2); background: var(--surface); }
+
+        .hero-scroll-hint {
+            position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: .4rem;
+            color: var(--text-3); font-family: 'Fira Code', monospace;
+            font-size: .6rem; letter-spacing: .15em;
+            animation: float 2.5s ease-in-out infinite;
+        }
+
+        .scroll-line { width: 1px; height: 40px; background: linear-gradient(to bottom, var(--text-3), transparent); }
+
+        @keyframes float {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50%       { transform: translateX(-50%) translateY(6px); }
+        }
+
+        /* ─── Stats Bar ─────────────────────────────────────────────────── */
+        #stats {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+        }
+
+        .stat-item {
+            padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1rem, 4vw, 3rem);
+            display: flex; flex-direction: column; gap: .35rem;
+            border-right: 1px solid var(--border);
+        }
+
+        .stat-item:last-child { border-right: none; }
+
+        .stat-value {
+            font-family: 'Teko', sans-serif; font-size: clamp(2.5rem, 6vw, 4.5rem);
+            line-height: 1; color: #fff;
+        }
+
+        .stat-value span { color: var(--cyan); }
+
+        .stat-label {
+            font-size: .7rem; letter-spacing: .18em; text-transform: uppercase;
+            color: var(--text-2); font-family: 'Fira Code', monospace;
+        }
+
+        /* ─── Section Scaffolding ───────────────────────────────────────── */
+        section { padding: clamp(4rem, 10vw, 7rem) clamp(1.5rem, 8vw, 6rem); }
+
+        .section-label {
+            font-family: 'Fira Code', monospace; font-size: .65rem; letter-spacing: .25em;
+            text-transform: uppercase; color: var(--cyan); margin-bottom: 1rem;
+            display: flex; align-items: center; gap: .75rem;
+        }
+
+        .section-label::after {
+            content: ''; flex: 1; height: 1px; background: var(--border); max-width: 120px;
+        }
+
+        .section-title {
+            font-family: 'Teko', sans-serif; font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 600; letter-spacing: -.01em; line-height: 1; margin-bottom: 1rem;
+        }
+
+        .section-desc {
+            font-size: 1rem; line-height: 1.75; color: var(--text-2);
+            max-width: 580px; font-weight: 300;
+        }
+
+        /* ─── About ─────────────────────────────────────────────────────── */
+        #about {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 4rem; align-items: start; border-bottom: 1px solid var(--border);
+        }
+
+        .about-objectives { display: flex; flex-direction: column; gap: .6rem; margin-top: 1.5rem; }
+
+        .objective-item {
+            display: flex; align-items: flex-start; gap: .75rem;
+            padding: .75rem 0; border-bottom: 1px solid var(--border);
+            font-size: .9rem; color: var(--text-2); line-height: 1.5;
+        }
+
+        .objective-item:last-child { border-bottom: none; }
+
+        .obj-num {
+            font-family: 'Fira Code', monospace; font-size: .65rem;
+            color: var(--cyan); padding-top: .15rem; min-width: 24px; letter-spacing: .05em;
+        }
+
+        .about-visual { position: relative; }
+
+        /* ─── Terminal Card ─────────────────────────────────────────────── */
+        .terminal-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); overflow: hidden; font-family: 'Fira Code', monospace;
+        }
+
+        .terminal-bar {
+            display: flex; align-items: center; gap: .5rem;
+            padding: .7rem 1rem; background: var(--surface-2); border-bottom: 1px solid var(--border);
+        }
+
+        .t-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .t-dot.r { background: #ff5f57; }
+        .t-dot.y { background: #ffbd2e; }
+        .t-dot.g { background: #28ca41; }
+
+        .terminal-title {
+            margin-left: .5rem; font-size: .65rem; letter-spacing: .12em; color: var(--text-3);
+        }
+
+        .terminal-body { padding: 1.25rem 1.5rem; font-size: .72rem; line-height: 2; color: var(--text-2); }
+
+        .t-prompt   { color: var(--cyan); user-select: none; }
+        .t-cmd      { color: var(--text); }
+        .t-out      { color: var(--text-2); padding-left: 1.25rem; }
+        .t-ok       { color: var(--green); }
+        .t-warn     { color: var(--amber); }
+        .t-comment  { color: var(--text-3); }
+        .t-flag     { color: var(--amber); }
+
+        .t-blink {
+            display: inline-block; width: 8px; height: 14px;
+            background: var(--cyan); margin-left: 2px; vertical-align: middle;
+            animation: blink .9s step-end infinite;
+        }
+
+        @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
+
+        /* ─── Challenges ────────────────────────────────────────────────── */
+        #challenges { border-bottom: 1px solid var(--border); }
+
+        .challenges-header {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            margin-bottom: 3.5rem; gap: 2rem; flex-wrap: wrap;
+        }
+
+        .track-label {
+            font-family: 'Fira Code', monospace; font-size: .65rem; letter-spacing: .2em;
+            text-transform: uppercase; color: var(--text-3); margin-bottom: 1.25rem;
+            display: flex; align-items: center; gap: .6rem;
+        }
+
+        .track-label::before {
+            content: ''; width: 20px; height: 1px; background: var(--text-3);
+        }
+
+        .challenges-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 1px; background: var(--border); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 2rem;
+        }
+
+        .challenge-card.full  { grid-column: span 3; }
+        .challenge-card.wide  { grid-column: span 2; }
+
+        .challenge-card {
+            position: relative; --c-color: var(--cyan);
+            background: #0c1d38; border: 1px solid #173257;
+            padding: 2rem; overflow: hidden; cursor: pointer;
+            transition: background .25s, border-color .25s;
+            text-decoration: none; display: flex; flex-direction: column;
+        }
+
+        .challenge-card:hover { background: #10264a; border-color: #1f4c7a; }
+
+        .challenge-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0;
+            height: 2px; background: var(--c-color);
+        }
+
+        /* Phase color assignments */
+        .challenge-card[data-phase="setup"]    { --c-color: var(--phase-setup); }
+        .challenge-card[data-phase="core"]     { --c-color: var(--phase-core); }
+        .challenge-card[data-phase="security"] { --c-color: var(--phase-security); }
+        .challenge-card[data-phase="advanced"] { --c-color: var(--phase-advanced); }
+        .challenge-card[data-phase="ai"]       { --c-color: var(--phase-ai); }
+
+        .card-bg-number {
+            position: absolute; right: -.1em; top: -.15em;
+            font-family: 'Teko', sans-serif; font-size: clamp(5rem, 10vw, 8rem);
+            font-weight: 700; color: rgba(255,255,255,.025); line-height: 1;
+            user-select: none; pointer-events: none;
+        }
+
+        .card-top {
+            display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;
+        }
+
+        .card-phase-badge {
+            font-family: 'Fira Code', monospace; font-size: .6rem;
+            letter-spacing: .18em; text-transform: uppercase;
+            padding: .25rem .65rem; border-radius: 3px; border: 1px solid;
+            color: var(--c-color); border-color: var(--c-color);
+            background: rgba(0, 217, 245, .08);
+        }
+
+        .card-num {
+            font-family: 'Fira Code', monospace; font-size: .65rem;
+            color: rgba(122, 154, 184, .75); letter-spacing: .1em;
+        }
+
+        .card-title {
+            font-family: 'Teko', sans-serif; font-size: clamp(1.4rem, 3vw, 2rem);
+            font-weight: 600; color: #fff; line-height: 1.05; margin-bottom: .75rem;
+        }
+
+        .card-desc {
+            font-size: .85rem; line-height: 1.65; color: #7ea3c9; font-weight: 300; flex: 1;
+        }
+
+        .card-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 1.5rem; padding-top: 1rem;
+            border-top: 1px solid rgba(36, 61, 92, .65);
+        }
+
+        .card-tags { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+        .card-tag {
+            font-family: 'Fira Code', monospace; font-size: .6rem; color: #6f8fb4;
+            letter-spacing: .08em; background: rgba(16, 38, 74, .85);
+            border: 1px solid rgba(36, 61, 92, .45); padding: .2rem .55rem; border-radius: 3px;
+        }
+
+        .card-arrow {
+            display: flex; align-items: center; gap: .35rem;
+            font-family: 'Fira Code', monospace; font-size: .65rem;
+            color: var(--c-color); opacity: 0;
+            transition: opacity .25s, transform .25s; transform: translateX(-8px);
+        }
+
+        .challenge-card:hover .card-arrow { opacity: 1; transform: translateX(0); }
+
+        .challenge-card.full .card-inner {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;
+        }
+
+        .challenge-card.full .card-title { font-size: clamp(2rem, 4vw, 3rem); }
+        .challenge-card.full .card-desc  { max-width: 420px; }
+
+        /* ─── Prerequisites ─────────────────────────────────────────────── */
+        #prerequisites { border-bottom: 1px solid var(--border); }
+
+        .prereq-layout {
+            display: grid; grid-template-columns: 1fr 1.3fr;
+            gap: 4rem; align-items: start; margin-top: 3rem;
+        }
+
+        .prereq-list { display: flex; flex-direction: column; gap: 0; }
+
+        .prereq-item {
+            display: flex; align-items: flex-start; gap: 1rem;
+            padding: 1rem 0; border-bottom: 1px solid var(--border);
+        }
+
+        .prereq-item:last-child { border-bottom: none; }
+
+        .prereq-icon {
+            width: 32px; height: 32px; min-width: 32px; border-radius: var(--radius);
+            background: var(--surface-2); border: 1px solid var(--border);
+            display: grid; place-items: center; margin-top: .15rem;
+        }
+
+        .prereq-icon svg { width: 14px; height: 14px; }
+
+        .prereq-name { font-weight: 600; font-size: .9rem; color: var(--text); margin-bottom: .2rem; }
+        .prereq-note { font-size: .8rem; color: var(--text-2); font-weight: 300; }
+
+        .code-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+
+        .code-block-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: .6rem 1.25rem; background: var(--surface-2); border-bottom: 1px solid var(--border);
+        }
+
+        .code-block-title { font-family: 'Fira Code', monospace; font-size: .65rem; letter-spacing: .1em; color: var(--text-3); }
+        .code-block-lang  { font-family: 'Fira Code', monospace; font-size: .6rem; color: var(--cyan); letter-spacing: .1em; }
+
+        .code-block-body {
+            padding: 1.25rem 1.5rem; font-family: 'Fira Code', monospace;
+            font-size: .72rem; line-height: 1.9; color: var(--text-2); overflow-x: auto;
+        }
+
+        .code-block-body .comment { color: var(--text-3); }
+        .code-block-body .cmd     { color: var(--text); }
+        .code-block-body .flag    { color: var(--amber); }
+        .code-block-body .str     { color: var(--green); }
+
+        /* ─── Azure Stack ───────────────────────────────────────────────── */
+        #stack { border-bottom: 1px solid var(--border); }
+
+        .stack-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1px; background: var(--border); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); overflow: hidden; margin-top: 3rem;
+        }
+
+        .stack-item {
+            background: var(--surface); padding: 1.5rem;
+            display: flex; flex-direction: column; gap: .5rem;
+            transition: background .2s;
+        }
+
+        .stack-item:hover { background: var(--surface-2); }
+
+        .stack-icon {
+            width: 40px; height: 40px; border-radius: var(--radius);
+            background: #fff; border: 1px solid var(--border);
+            display: grid; place-items: center; padding: 4px;
+        }
+
+        .stack-icon svg { width: 100%; height: 100%; }
+
+        .stack-name { font-size: .85rem; font-weight: 600; color: var(--text); }
+
+        .stack-desc { font-size: .75rem; color: var(--text-2); font-weight: 300; line-height: 1.5; }
+
+        .stack-phase {
+            font-family: 'Fira Code', monospace; font-size: .58rem;
+            letter-spacing: .1em; color: var(--text-3); margin-top: auto;
+        }
+
+        /* ─── Footer ────────────────────────────────────────────────────── */
+        footer {
+            padding: 2.5rem clamp(1.5rem, 8vw, 6rem);
+            display: flex; align-items: center; justify-content: space-between;
+            border-top: 1px solid var(--border); flex-wrap: wrap; gap: 1rem;
+        }
+
+        .footer-copy { font-size: .75rem; color: var(--text-3); font-family: 'Fira Code', monospace; }
+
+        .footer-links { display: flex; gap: 1.5rem; list-style: none; }
+
+        .footer-links a {
+            font-size: .72rem; color: var(--text-3); text-decoration: none;
+            font-family: 'Fira Code', monospace; transition: color .2s;
+        }
+
+        .footer-links a:hover { color: var(--cyan); }
+
+        /* ─── Reveal ────────────────────────────────────────────────────── */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity .6s ease, transform .6s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        /* ─── Drawer ────────────────────────────────────────────────────── */
+        #drawer-overlay {
+            position: fixed; inset: 0; background: rgba(3,7,15,.7); backdrop-filter: blur(4px);
+            z-index: 200; opacity: 0; pointer-events: none; transition: opacity .3s ease;
+        }
+
+        #drawer-overlay.open { opacity: 1; pointer-events: all; }
+
+        #drawer {
+            position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100vw);
+            background: var(--bg); border-left: 1px solid var(--border); z-index: 201;
+            display: flex; flex-direction: column; transform: translateX(100%);
+            transition: transform .35s cubic-bezier(.4,0,.2,1); overflow: hidden;
+        }
+
+        #drawer.open { transform: translateX(0); }
+
+        .drawer-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+            background: var(--surface); gap: 1rem; flex-shrink: 0;
+        }
+
+        .drawer-nav { display: flex; gap: .5rem; }
+
+        .drawer-nav-btn {
+            background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2);
+            font-family: 'Fira Code', monospace; font-size: .7rem;
+            padding: .35rem .75rem; border-radius: var(--radius); cursor: pointer;
+            transition: background .2s, color .2s, border-color .2s;
+        }
+
+        .drawer-nav-btn:hover { background: var(--cyan-dim); color: var(--cyan); border-color: var(--cyan); }
+        .drawer-nav-btn:disabled { opacity: .3; cursor: not-allowed; }
+
+        .drawer-close {
+            background: none; border: 1px solid var(--border); color: var(--text-2);
+            font-size: 1.2rem; line-height: 1; width: 32px; height: 32px;
+            border-radius: var(--radius); cursor: pointer; display: grid; place-items: center;
+            transition: background .2s, color .2s, border-color .2s; flex-shrink: 0;
+        }
+
+        .drawer-close:hover { background: rgba(244,63,94,.12); color: #f43f5e; border-color: #f43f5e; }
+
+        .drawer-breadcrumb {
+            font-family: 'Fira Code', monospace; font-size: .65rem; color: var(--text-3);
+            letter-spacing: .1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        .drawer-breadcrumb span { color: var(--cyan); }
+
+        .drawer-body {
+            flex: 1; overflow-y: auto; padding: 2rem 2.5rem;
+            scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+        }
+
+        .drawer-body::-webkit-scrollbar { width: 4px; }
+        .drawer-body::-webkit-scrollbar-track { background: transparent; }
+        .drawer-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        /* markdown rendering */
+        .md-content h1 {
+            font-family: 'Teko', sans-serif; font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 600; color: #fff; line-height: 1.05;
+            margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+        }
+
+        .md-content h2 {
+            font-family: 'Teko', sans-serif; font-size: 1.6rem; font-weight: 500;
+            color: var(--cyan); margin-top: 2.5rem; margin-bottom: .75rem; letter-spacing: .02em;
+        }
+
+        .md-content h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin-top: 1.5rem; margin-bottom: .5rem; }
+
+        .md-content p { font-size: .9rem; line-height: 1.8; color: var(--text-2); margin-bottom: 1rem; font-weight: 300; }
+
+        .md-content ul, .md-content ol { padding-left: 1.25rem; margin-bottom: 1rem; }
+
+        .md-content li { font-size: .9rem; line-height: 1.8; color: var(--text-2); margin-bottom: .25rem; font-weight: 300; }
+
+        .md-content li::marker { color: var(--cyan); }
+
+        .md-content code {
+            font-family: 'Fira Code', monospace; font-size: .78em;
+            background: var(--surface-2); border: 1px solid var(--border);
+            padding: .1em .4em; border-radius: 3px; color: var(--cyan);
+        }
+
+        .md-content pre {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 1.25rem 1.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem;
+        }
+
+        .md-content pre code { background: none; border: none; padding: 0; font-size: .78rem; color: var(--text-2); line-height: 1.8; }
+
+        .md-content blockquote {
+            border-left: 3px solid var(--amber); padding: .75rem 1rem;
+            margin: 1rem 0; background: var(--amber-dim);
+            border-radius: 0 var(--radius) var(--radius) 0;
+        }
+
+        .md-content blockquote p { color: var(--text); margin-bottom: 0; font-size: .85rem; }
+
+        .md-content a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid rgba(0,217,245,.3); transition: border-color .2s; }
+        .md-content a:hover { border-color: var(--cyan); }
+
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; font-size: .85rem; }
+
+        .md-content th {
+            text-align: left; padding: .6rem .75rem; border-bottom: 2px solid var(--border-2);
+            color: var(--text); font-weight: 600; font-family: 'Fira Code', monospace;
+            font-size: .72rem; letter-spacing: .08em; text-transform: uppercase;
+        }
+
+        .md-content td { padding: .6rem .75rem; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: top; line-height: 1.6; }
+
+        .md-content hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+        .md-content > p:first-child a[href*="Challenge"],
+        .md-content > p:first-child a[href*="README"] {
+            display: inline-flex; align-items: center; gap: .3rem;
+            font-family: 'Fira Code', monospace; font-size: .7rem;
+            color: var(--text-3); border-bottom: none;
+            padding: .2rem .5rem; background: var(--surface-2);
+            border: 1px solid var(--border); border-radius: 3px;
+        }
+
+        .drawer-loading {
+            display: flex; align-items: center; justify-content: center;
+            height: 200px; gap: 1rem; color: var(--text-3);
+            font-family: 'Fira Code', monospace; font-size: .75rem; letter-spacing: .1em;
+        }
+
+        .drawer-loading::before {
+            content: ''; width: 20px; height: 20px;
+            border: 2px solid var(--border); border-top-color: var(--cyan);
+            border-radius: 50%; animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ─── Responsive ────────────────────────────────────────────────── */
+        @media (max-width: 900px) {
+            .nav-links { display: none; }
+            #about { grid-template-columns: 1fr; }
+            .challenges-grid { grid-template-columns: 1fr 1fr; }
+            .challenge-card.full { grid-column: span 2; }
+            .challenge-card.full .card-inner { grid-template-columns: 1fr; }
+            .challenge-card.wide { grid-column: span 2; }
+            .prereq-layout { grid-template-columns: 1fr; }
+            #stats { grid-template-columns: 1fr 1fr; }
+            .stat-item:nth-child(2) { border-right: none; }
+            .stat-item:nth-child(3) { border-right: 1px solid var(--border); border-top: 1px solid var(--border); }
+            .stat-item:nth-child(4) { border-right: none; border-top: 1px solid var(--border); }
+        }
+
+        @media (max-width: 600px) {
+            .challenges-grid { grid-template-columns: 1fr; }
+            .challenge-card.full, .challenge-card.wide { grid-column: span 1; }
+            .stack-grid { grid-template-columns: 1fr 1fr; }
+            #stats { grid-template-columns: 1fr; }
+            .stat-item { border-right: none !important; border-top: 1px solid var(--border); }
+            .stat-item:first-child { border-top: none; }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- Navigation -->
+<nav>
+    <a class="nav-logo" href="#hero">
+        <div class="nav-logo-icon">
+            <!-- Kubernetes helm icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 2a8 8 0 110 16A8 8 0 0112 4zm0 3a5 5 0 100 10A5 5 0 0012 7zm0 2a3 3 0 110 6 3 3 0 010-6z"/>
+            </svg>
+        </div>
+        <span class="nav-logo-text">FRONTIER AKS</span>
+    </a>
+    <ul class="nav-links">
+        <li><a href="#about">Mission</a></li>
+        <li><a href="#prerequisites">Setup</a></li>
+        <li><a href="#stack">Services</a></li>
+        <li><a href="#challenges">Challenges</a></li>
+    </ul>
+    <a class="nav-cta" href="https://github.com/microsoft/WhatTheHack" target="_blank"
+        rel="noopener noreferrer" aria-label="WhatTheHack on GitHub" title="WhatTheHack on GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2C6.477 2 2 6.486 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.009-.866-.014-1.699-2.782.605-3.37-1.344-3.37-1.344-.455-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.004.07 1.532 1.033 1.532 1.033.892 1.53 2.341 1.088 2.91.832.092-.647.349-1.088.635-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.269 2.75 1.026A9.565 9.565 0 0112 6.844c.85.004 1.706.115 2.504.337 1.909-1.295 2.748-1.026 2.748-1.026.546 1.378.202 2.397.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.31.678.921.678 1.856 0 1.339-.012 2.419-.012 2.747 0 .269.18.58.688.481A10.022 10.022 0 0022 12.017C22 6.486 17.523 2 12 2z"/>
+        </svg>
+    </a>
+</nav>
+
+<!-- Hero -->
+<section id="hero">
+    <canvas id="hero-canvas"></canvas>
+    <div class="hero-scanlines"></div>
+    <div class="hero-vignette"></div>
+
+    <div class="hero-content">
+        <div class="hero-label">What The Hack · Expert Track · 2026</div>
+        <h1 class="hero-title display">
+            FRONTIER<br>
+            <span class="accent">AKS</span>
+        </h1>
+        <p class="hero-subtitle">
+            Deploy, harden, and operate a production-grade Azure Kubernetes Service
+            cluster from zero — using only current, supported technology.
+        </p>
+        <div class="hero-pills">
+            <div class="hero-pill"><span class="dot"></span>AKS Automatic &amp; Standard</div>
+            <div class="hero-pill"><span class="dot"></span>Workload Identity</div>
+            <div class="hero-pill"><span class="dot"></span>Flux v2 GitOps</div>
+            <div class="hero-pill"><span class="dot"></span>KEDA + Karpenter</div>
+            <div class="hero-pill"><span class="dot"></span>AKS Managed Istio</div>
+            <div class="hero-pill"><span class="dot"></span>Fleet Manager</div>
+        </div>
+        <div class="hero-actions">
+            <a class="btn-primary" href="#challenges">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                Start the Hack
+            </a>
+            <a class="btn-secondary" href="README.md">Read the Briefing →</a>
+        </div>
+    </div>
+
+    <div class="hero-scroll-hint">
+        <div class="scroll-line"></div>
+        <span>SCROLL</span>
+    </div>
+</section>
+
+<!-- Stats -->
+<div id="stats">
+    <div class="stat-item reveal">
+        <div class="stat-value display">1<span>3</span></div>
+        <div class="stat-label">Core Challenges</div>
+    </div>
+    <div class="stat-item reveal" style="transition-delay:.1s">
+        <div class="stat-value display">0<span>2</span></div>
+        <div class="stat-label">AI Track Challenges</div>
+    </div>
+    <div class="stat-item reveal" style="transition-delay:.2s">
+        <div class="stat-value display">0<span>2</span></div>
+        <div class="stat-label">Days Estimated</div>
+    </div>
+    <div class="stat-item reveal" style="transition-delay:.3s">
+        <div class="stat-value display">0<span>0</span></div>
+        <div class="stat-label">Deprecated APIs</div>
+    </div>
+</div>
+
+<!-- About -->
+<section id="about">
+    <div>
+        <div class="section-label">Mission Brief</div>
+        <h2 class="section-title display reveal">WHAT YOU'LL<br>ACCOMPLISH</h2>
+        <p class="section-desc reveal">
+            Build a complete AKS production environment end-to-end. Every challenge uses
+            GA services — no deprecated add-ons, no retired APIs, no stale tooling.
+        </p>
+        <div class="about-objectives reveal">
+            <div class="objective-item">
+                <span class="obj-num mono">01</span>
+                <span>Deploy a production AKS cluster with <strong style="color:var(--text)">Azure CNI Overlay</strong>, Cilium, and Availability Zones</span>
+            </div>
+            <div class="objective-item">
+                <span class="obj-num mono">02</span>
+                <span>Eliminate all secret sprawl using <strong style="color:var(--text)">Workload Identity</strong> + Azure Key Vault CSI driver</span>
+            </div>
+            <div class="objective-item">
+                <span class="obj-num mono">03</span>
+                <span>Achieve full-stack observability with <strong style="color:var(--text)">Azure Managed Prometheus &amp; Grafana</strong></span>
+            </div>
+            <div class="objective-item">
+                <span class="obj-num mono">04</span>
+                <span>Scale to zero and beyond with <strong style="color:var(--text)">KEDA</strong>, HPA, VPA, and Karpenter node provisioning</span>
+            </div>
+            <div class="objective-item">
+                <span class="obj-num mono">05</span>
+                <span>Implement continuous delivery with <strong style="color:var(--text)">Flux v2</strong> — Git as the source of truth</span>
+            </div>
+            <div class="objective-item">
+                <span class="obj-num mono">06</span>
+                <span>Harden with <strong style="color:var(--text)">Entra RBAC</strong>, Azure Policy (OPA), and Defender for Containers</span>
+            </div>
+            <div class="objective-item">
+                <span class="obj-num mono">07</span>
+                <span>Secure service traffic with <strong style="color:var(--text)">AKS managed Istio</strong>, mTLS, and canary routing</span>
+            </div>
+            <div class="objective-item">
+                <span class="obj-num mono">08</span>
+                <span>Operate a fleet of clusters with <strong style="color:var(--text)">AKS Fleet Manager</strong> staged upgrades <em style="opacity:.6">(advanced)</em></span>
+            </div>
+            <div class="objective-item">
+                <span class="obj-num mono">09</span>
+                <span>Run LLM inference on GPU nodes using <strong style="color:var(--text)">KAITO</strong> <em style="opacity:.6">(optional AI track)</em></span>
+            </div>
+        </div>
+    </div>
+    <div class="about-visual reveal">
+        <div class="terminal-card">
+            <div class="terminal-bar">
+                <div class="t-dot r"></div>
+                <div class="t-dot y"></div>
+                <div class="t-dot g"></div>
+                <span class="terminal-title mono">az aks — frontier cluster</span>
+            </div>
+            <div class="terminal-body mono">
+                <div><span class="t-prompt">$ </span><span class="t-cmd">az aks create \</span></div>
+                <div class="t-out t-cmd"><span class="t-flag">--network-plugin</span> azure \</div>
+                <div class="t-out t-cmd"><span class="t-flag">--network-plugin-mode</span> overlay \</div>
+                <div class="t-out t-cmd"><span class="t-flag">--network-dataplane</span> cilium \</div>
+                <div class="t-out t-cmd"><span class="t-flag">--enable-oidc-issuer</span> \</div>
+                <div class="t-out t-cmd"><span class="t-flag">--enable-workload-identity</span> \</div>
+                <div class="t-out t-cmd"><span class="t-flag">--os-sku</span> AzureLinux \</div>
+                <div class="t-out t-cmd"><span class="t-flag">--auto-upgrade-channel</span> stable</div>
+                <div>&nbsp;</div>
+                <div class="t-out t-ok">✓ Cluster provisioned in 8m 42s</div>
+                <div class="t-out t-ok">✓ OIDC issuer enabled</div>
+                <div class="t-out t-ok">✓ Workload Identity enabled</div>
+                <div class="t-out t-ok">✓ Cilium CNI active</div>
+                <div>&nbsp;</div>
+                <div><span class="t-prompt">$ </span><span class="t-cmd">kubectl get nodes</span></div>
+                <div class="t-out t-comment">NAME                    STATUS   VERSION</div>
+                <div class="t-out t-ok">aks-system-00   Ready    v1.31.2</div>
+                <div class="t-out t-ok">aks-apppool-00  Ready    v1.31.2</div>
+                <div class="t-out t-ok">aks-apppool-01  Ready    v1.31.2</div>
+                <div><span class="t-prompt">$ </span><span class="t-blink"></span></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Prerequisites -->
+<section id="prerequisites">
+    <div class="section-label">Before You Begin</div>
+    <h2 class="section-title display reveal">PREREQUISITES</h2>
+    <div class="prereq-layout">
+        <div class="prereq-list reveal">
+            <div class="prereq-item">
+                <div class="prereq-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                </div>
+                <div>
+                    <div class="prereq-name">Azure Subscription</div>
+                    <div class="prereq-note">Owner role required for RBAC assignments and <code class="mono" style="font-size:.75em">--attach-acr</code></div>
+                </div>
+            </div>
+            <div class="prereq-item">
+                <div class="prereq-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+                </div>
+                <div>
+                    <div class="prereq-name">Azure CLI ≥ 2.65.0</div>
+                    <div class="prereq-note">Install via <code class="mono" style="font-size:.75em">aka.ms/InstallAzureCLI</code> or run <code class="mono" style="font-size:.75em">az upgrade</code></div>
+                </div>
+            </div>
+            <div class="prereq-item">
+                <div class="prereq-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                </div>
+                <div>
+                    <div class="prereq-name">kubectl + kubelogin</div>
+                    <div class="prereq-note">Install both with <code class="mono" style="font-size:.75em">az aks install-cli</code></div>
+                </div>
+            </div>
+            <div class="prereq-item">
+                <div class="prereq-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+                </div>
+                <div>
+                    <div class="prereq-name">Helm ≥ 3.14</div>
+                    <div class="prereq-note">Install via <code class="mono" style="font-size:.75em">helm.sh/docs/intro/install</code></div>
+                </div>
+            </div>
+            <div class="prereq-item">
+                <div class="prereq-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M13 12H3"/></svg>
+                </div>
+                <div>
+                    <div class="prereq-name">Flux CLI v2</div>
+                    <div class="prereq-note">Install via <code class="mono" style="font-size:.75em">fluxcd.io/flux/installation</code></div>
+                </div>
+            </div>
+            <div class="prereq-item">
+                <div class="prereq-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <div>
+                    <div class="prereq-name">GPU Quota <em style="opacity:.6;font-size:.85em">(AI track only)</em></div>
+                    <div class="prereq-note">Request <code class="mono" style="font-size:.75em">Standard_NC4as_T4_v3</code> quota 24–48h in advance</div>
+                </div>
+            </div>
+        </div>
+        <div class="reveal" style="transition-delay:.15s">
+            <div class="code-block">
+                <div class="code-block-header">
+                    <span class="code-block-title">quick-verify.sh</span>
+                    <span class="code-block-lang">bash</span>
+                </div>
+                <div class="code-block-body">
+                    <div><span class="comment"># Verify all tools are ready</span></div>
+                    <div><span class="cmd">az --version</span>        <span class="comment"># ≥ 2.65.0</span></div>
+                    <div><span class="cmd">kubectl version --client</span></div>
+                    <div><span class="cmd">helm version</span>         <span class="comment"># ≥ 3.14</span></div>
+                    <div><span class="cmd">flux --version</span>        <span class="comment"># ≥ 2.0.0</span></div>
+                    <div>&nbsp;</div>
+                    <div><span class="comment"># Register required providers</span></div>
+                    <div><span class="cmd">for ns in \</span></div>
+                    <div>  <span class="str">Microsoft.ContainerService</span> \</div>
+                    <div>  <span class="str">Microsoft.Monitor</span> \</div>
+                    <div>  <span class="str">Microsoft.Dashboard</span> \</div>
+                    <div>  <span class="str">Microsoft.KubernetesConfiguration</span>; do</div>
+                    <div>  <span class="cmd">az provider register</span> <span class="flag">--namespace</span> $ns</div>
+                    <div>done</div>
+                    <div>&nbsp;</div>
+                    <div><span class="comment"># Confirm Owner role</span></div>
+                    <div><span class="cmd">az role assignment list \</span></div>
+                    <div>  <span class="flag">--assignee</span> $(az account show \</div>
+                    <div>    <span class="flag">--query</span> <span class="str">user.name</span> <span class="flag">-o</span> tsv) \</div>
+                    <div>  <span class="flag">--role</span> <span class="str">Owner</span> <span class="flag">-o</span> table</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Azure Services Stack -->
+<section id="stack">
+    <div class="section-label">Technology</div>
+    <h2 class="section-title display reveal">AZURE SERVICES</h2>
+    <p class="section-desc reveal">Services you will provision and integrate during the hackathon.</p>
+    <div class="stack-grid reveal" style="transition-delay:.1s">
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1.5L1.5 5.25v7.5L9 16.5l7.5-3.75v-7.5L9 1.5z" fill="#326CE5"/><path d="M9 4.5v9M5.25 6.375L9 4.5l3.75 1.875" stroke="#fff" stroke-width="1.2"/><circle cx="9" cy="9" r="1.5" fill="#fff"/></svg>
+            </div>
+            <div class="stack-name">Azure Kubernetes Service</div>
+            <div class="stack-desc">Managed Kubernetes with Automatic and Standard modes, CNI Overlay, Cilium</div>
+            <div class="stack-phase">ch 00–12</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#0078D4"/><path d="M4 9h10M9 4v10" stroke="#fff" stroke-width="1.5"/></svg>
+            </div>
+            <div class="stack-name">Azure Container Registry</div>
+            <div class="stack-desc">Premium SKU with private endpoints and ACR Tasks for image builds</div>
+            <div class="stack-phase">ch 01</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#107C41"/><path d="M5 9l3 3 5-5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <div class="stack-name">Workload Identity</div>
+            <div class="stack-desc">Entra ID federated credentials, OIDC issuer, zero static secrets</div>
+            <div class="stack-phase">ch 04</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#F4B91A"/><path d="M9 4v10M4 9h10" stroke="#fff" stroke-width="1.5" opacity=".6"/><circle cx="9" cy="9" r="3" stroke="#fff" stroke-width="1.2"/></svg>
+            </div>
+            <div class="stack-name">Azure Key Vault</div>
+            <div class="stack-desc">Secrets Store CSI driver with RBAC authorization and soft-delete</div>
+            <div class="stack-phase">ch 04</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#E8563A"/><path d="M3 9h12M3 6h12M3 12h9" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg>
+            </div>
+            <div class="stack-name">Managed Prometheus &amp; Grafana</div>
+            <div class="stack-desc">Azure Monitor workspace, pre-built Kubernetes dashboards, KQL queries</div>
+            <div class="stack-phase">ch 05</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#5C2D91"/><path d="M4 14l4-10 4 10M6 10h4" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg>
+            </div>
+            <div class="stack-name">KEDA &amp; Karpenter</div>
+            <div class="stack-desc">Event-driven autoscaling with Service Bus triggers, scale-to-zero, NAP</div>
+            <div class="stack-phase">ch 06</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#00897B"/><path d="M4 9c2-4 8-4 10 0M4 9c2 4 8 4 10 0" stroke="#fff" stroke-width="1.3"/><circle cx="9" cy="9" r="1.5" fill="#fff"/></svg>
+            </div>
+            <div class="stack-name">Flux v2 GitOps</div>
+            <div class="stack-desc">AKS microsoft.flux extension, HelmRelease, drift detection, PR-driven delivery</div>
+            <div class="stack-phase">ch 07</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#D13438"/><path d="M5 5l8 8M13 5l-8 8" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </div>
+            <div class="stack-name">Azure Policy (OPA)</div>
+            <div class="stack-desc">OPA Gatekeeper admission control, image registry restrictions, Defender</div>
+            <div class="stack-phase">ch 08</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#0089D6"/><circle cx="9" cy="9" r="5" stroke="#fff" stroke-width="1.4"/><circle cx="9" cy="9" r="2" fill="#fff"/></svg>
+            </div>
+            <div class="stack-name">AKS Managed Istio</div>
+            <div class="stack-desc">mTLS, VirtualService canary routing, AuthorizationPolicy, Envoy sidecars</div>
+            <div class="stack-phase">ch 09</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#0078D4"/><path d="M3 12V9a6 6 0 0112 0v3" stroke="#fff" stroke-width="1.3"/><rect x="2" y="12" width="14" height="4" rx="1" fill="#fff" opacity=".3"/></svg>
+            </div>
+            <div class="stack-name">Azure Disks &amp; Files</div>
+            <div class="stack-desc">CSI drivers, StatefulSet PVCs, RWO vs RWX, Azure Backup for AKS</div>
+            <div class="stack-phase">ch 10</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#0050EF"/><path d="M3 9h12M9 3v6M9 9l3 3M9 9l-3 3" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg>
+            </div>
+            <div class="stack-name">Private Cluster &amp; NAT</div>
+            <div class="stack-desc">Private API server, Azure Firewall / NAT Gateway egress, private endpoints</div>
+            <div class="stack-phase">ch 11</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#00BCF2"/><circle cx="6" cy="9" r="2.5" stroke="#fff" stroke-width="1.2"/><circle cx="12" cy="6" r="2.5" stroke="#fff" stroke-width="1.2"/><circle cx="12" cy="12" r="2.5" stroke="#fff" stroke-width="1.2"/><path d="M8 8.5l2-2M8 9.5l2 2" stroke="#fff" stroke-width="1"/></svg>
+            </div>
+            <div class="stack-name">AKS Fleet Manager</div>
+            <div class="stack-desc">Multi-cluster workload propagation, staged Kubernetes version upgrades</div>
+            <div class="stack-phase">ch 12</div>
+        </div>
+        <div class="stack-item">
+            <div class="stack-icon">
+                <svg viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="3" fill="#FF8C00"/><path d="M9 3l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z" stroke="#fff" stroke-width="1.1" fill="none"/></svg>
+            </div>
+            <div class="stack-name">KAITO (GPU / LLM)</div>
+            <div class="stack-desc">AI Toolchain Operator, Phi-3-mini inference, GPU node pools with T4</div>
+            <div class="stack-phase">ai-01, ai-02</div>
+        </div>
+    </div>
+</section>
+
+<!-- Challenges -->
+<section id="challenges">
+    <div class="challenges-header">
+        <div>
+            <div class="section-label">The Path</div>
+            <h2 class="section-title display reveal">CHALLENGES</h2>
+        </div>
+        <p class="section-desc reveal" style="max-width:340px;">
+            Thirteen core challenges plus an optional GPU/AI track. Click any card to read the challenge.
+        </p>
+    </div>
+
+    <div class="track-label">Core Track — 13 Challenges</div>
+    <div class="challenges-grid">
+
+        <!-- Ch 00 — full width -->
+        <a class="challenge-card full" data-phase="setup" href="Student/Challenge-00.md">
+            <div class="card-bg-number">00</div>
+            <div class="card-inner">
+                <div>
+                    <div class="card-top">
+                        <span class="card-phase-badge">Setup</span>
+                        <span class="card-num">CH·00</span>
+                    </div>
+                    <div class="card-title">Prerequisites<br>Ready, Set, GO!</div>
+                    <p class="card-desc">Configure your workstation with the full cloud-native toolset: Azure CLI, kubectl, kubelogin, Helm, and Flux v2 CLI. Verify Azure subscription access and register required resource providers.</p>
+                </div>
+                <div>
+                    <div class="card-footer">
+                        <div class="card-tags">
+                            <span class="card-tag">azure-cli</span>
+                            <span class="card-tag">kubectl</span>
+                            <span class="card-tag">helm</span>
+                            <span class="card-tag">flux</span>
+                        </div>
+                        <span class="card-arrow">Open →</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <!-- Ch 01 -->
+        <a class="challenge-card" data-phase="setup" href="Student/Challenge-01.md">
+            <div class="card-bg-number">01</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Setup</span>
+                <span class="card-num">CH·01</span>
+            </div>
+            <div class="card-title">Containers &amp; ACR</div>
+            <p class="card-desc">Containerize FabTechOps and push images to Azure Container Registry using ACR Tasks — no local Docker required.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">acr</span><span class="card-tag">docker</span><span class="card-tag">acr-tasks</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 02 -->
+        <a class="challenge-card" data-phase="setup" href="Student/Challenge-02.md">
+            <div class="card-bg-number">02</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Setup</span>
+                <span class="card-num">CH·02</span>
+            </div>
+            <div class="card-title">AKS Cluster Deployment</div>
+            <p class="card-desc">Deploy a production-ready AKS cluster: Azure CNI Overlay, Cilium, Workload Identity, OIDC issuer, AzureLinux, and auto-upgrade channels.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">aks</span><span class="card-tag">cilium</span><span class="card-tag">oidc</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 03 -->
+        <a class="challenge-card" data-phase="core" href="Student/Challenge-03.md">
+            <div class="card-bg-number">03</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Core</span>
+                <span class="card-num">CH·03</span>
+            </div>
+            <div class="card-title">App Deployment &amp; Helm Ingress</div>
+            <p class="card-desc">Package FabTechOps as a Helm chart and expose it via the App Routing add-on (GA NGINX). Demonstrate Helm upgrade and rollback.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">helm</span><span class="card-tag">app-routing</span><span class="card-tag">ingress</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 04 -->
+        <a class="challenge-card" data-phase="core" href="Student/Challenge-04.md">
+            <div class="card-bg-number">04</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Core</span>
+                <span class="card-num">CH·04</span>
+            </div>
+            <div class="card-title">Workload Identity &amp; Secrets</div>
+            <p class="card-desc">Replace hardcoded credentials with Azure Key Vault + Secrets Store CSI and Entra ID federated credentials. Zero static secrets in any manifest.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">workload-identity</span><span class="card-tag">key-vault</span><span class="card-tag">csi</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 05 -->
+        <a class="challenge-card" data-phase="core" href="Student/Challenge-05.md">
+            <div class="card-bg-number">05</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Core</span>
+                <span class="card-num">CH·05</span>
+            </div>
+            <div class="card-title">Observability</div>
+            <p class="card-desc">Build a full-stack observability platform: Azure Managed Prometheus, Grafana dashboards, Container Insights log collection, and KQL queries.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">prometheus</span><span class="card-tag">grafana</span><span class="card-tag">kql</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 06 -->
+        <a class="challenge-card" data-phase="core" href="Student/Challenge-06.md">
+            <div class="card-bg-number">06</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Core</span>
+                <span class="card-num">CH·06</span>
+            </div>
+            <div class="card-title">Autoscaling</div>
+            <p class="card-desc">Configure HPA, KEDA (Service Bus queue depth, scale-to-zero), and Node Auto Provisioning (Karpenter) for just-in-time node creation.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">hpa</span><span class="card-tag">keda</span><span class="card-tag">karpenter</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 07 -->
+        <a class="challenge-card" data-phase="core" href="Student/Challenge-07.md">
+            <div class="card-bg-number">07</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Core</span>
+                <span class="card-num">CH·07</span>
+            </div>
+            <div class="card-title">GitOps with Flux v2</div>
+            <p class="card-desc">Implement pull-based continuous delivery via the AKS Flux v2 extension. Demonstrate drift correction and PR-driven progressive delivery.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">flux-v2</span><span class="card-tag">gitops</span><span class="card-tag">helm-release</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 08 -->
+        <a class="challenge-card" data-phase="security" href="Student/Challenge-08.md">
+            <div class="card-bg-number">08</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Security</span>
+                <span class="card-num">CH·08</span>
+            </div>
+            <div class="card-title">AKS Security Hardening</div>
+            <p class="card-desc">Apply Entra ID RBAC, least-privilege roles, Azure Policy (OPA), image registry restrictions, and Kubernetes network policies.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">entra-id</span><span class="card-tag">opa</span><span class="card-tag">network-policy</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 09 -->
+        <a class="challenge-card" data-phase="security" href="Student/Challenge-09.md">
+            <div class="card-bg-number">09</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Security</span>
+                <span class="card-num">CH·09</span>
+            </div>
+            <div class="card-title">AKS Managed Istio</div>
+            <p class="card-desc">Enable the AKS managed Istio add-on, enforce mTLS in STRICT mode, and implement a canary traffic split using VirtualService and DestinationRule.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">istio</span><span class="card-tag">mtls</span><span class="card-tag">canary</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 10 -->
+        <a class="challenge-card" data-phase="advanced" href="Student/Challenge-10.md">
+            <div class="card-bg-number">10</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Advanced</span>
+                <span class="card-num">CH·10</span>
+            </div>
+            <div class="card-title">Persistent Storage</div>
+            <p class="card-desc">Configure StatefulSets with Azure Disk (RWO) and Azure Files (RWX) CSI drivers. Prove data survives pod deletion. Explore Azure Backup for AKS.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">azure-disk</span><span class="card-tag">azure-files</span><span class="card-tag">statefulset</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 11 -->
+        <a class="challenge-card" data-phase="advanced" href="Student/Challenge-11.md">
+            <div class="card-bg-number">11</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Advanced</span>
+                <span class="card-num">CH·11</span>
+            </div>
+            <div class="card-title">Enterprise Networking</div>
+            <p class="card-desc">Build a private AKS cluster, configure egress via NAT Gateway or Azure Firewall, and lock down ACR access with a private endpoint.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">private-cluster</span><span class="card-tag">nat-gateway</span><span class="card-tag">private-endpoint</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <!-- Ch 12 -->
+        <a class="challenge-card" data-phase="advanced" href="Student/Challenge-12.md">
+            <div class="card-bg-number">12</div>
+            <div class="card-top">
+                <span class="card-phase-badge">Advanced</span>
+                <span class="card-num">CH·12</span>
+            </div>
+            <div class="card-title">AKS Fleet Manager</div>
+            <p class="card-desc">Create a Fleet hub, join multiple member clusters, propagate workloads with ClusterResourcePlacement, and design a staged upgrade run strategy.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">fleet</span><span class="card-tag">multi-cluster</span><span class="card-tag">upgrades</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+    </div>
+
+    <!-- AI Track -->
+    <div class="track-label" style="margin-top:3rem">Optional AI Track</div>
+    <div class="challenges-grid">
+
+        <a class="challenge-card wide" data-phase="ai" href="Student/Challenge-AI-01.md">
+            <div class="card-bg-number">AI·01</div>
+            <div class="card-top">
+                <span class="card-phase-badge">AI Track</span>
+                <span class="card-num">CH·AI-01</span>
+            </div>
+            <div class="card-title">AI on AKS — GPU Foundations</div>
+            <p class="card-desc">Add a GPU node pool (Standard_NC4as_T4_v3), verify the NVIDIA device plugin, run a CUDA validation job, and deploy a Hugging Face inference endpoint.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">gpu</span><span class="card-tag">nvidia</span><span class="card-tag">cuda</span><span class="card-tag">t4</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+        <a class="challenge-card" data-phase="ai" href="Student/Challenge-AI-02.md">
+            <div class="card-bg-number">AI·02</div>
+            <div class="card-top">
+                <span class="card-phase-badge">AI Track</span>
+                <span class="card-num">CH·AI-02</span>
+            </div>
+            <div class="card-title">LLM Inference with KAITO</div>
+            <p class="card-desc">Install KAITO, deploy Phi-3-mini via a Workspace CRD, wait for the model download, send inference requests, and scale replicas.</p>
+            <div class="card-footer">
+                <div class="card-tags"><span class="card-tag">kaito</span><span class="card-tag">phi-3</span><span class="card-tag">llm</span></div>
+                <span class="card-arrow">Open →</span>
+            </div>
+        </a>
+
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <span class="footer-copy">© 2026 · Frontier AKS Hackathon · WhatTheHack</span>
+    <ul class="footer-links">
+        <li><a href="README.md">Briefing</a></li>
+        <li><a href="Coach/README.md">Coach Guide</a></li>
+        <li><a href="https://github.com/microsoft/WhatTheHack" target="_blank" rel="noopener">WhatTheHack</a></li>
+        <li><a href="https://learn.microsoft.com/azure/aks/" target="_blank" rel="noopener">AKS Docs</a></li>
+    </ul>
+</footer>
+
+<!-- Drawer overlay -->
+<div id="drawer-overlay"></div>
+<div id="drawer">
+    <div class="drawer-header">
+        <div class="drawer-nav">
+            <button class="drawer-nav-btn" id="drawer-prev">← Prev</button>
+            <button class="drawer-nav-btn" id="drawer-next">Next →</button>
+        </div>
+        <span class="drawer-breadcrumb">Frontier AKS / <span id="drawer-title">Challenge</span></span>
+        <button class="drawer-close" id="drawer-close" aria-label="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+        <div id="drawer-content" class="md-content"></div>
+    </div>
+</div>
+
+<script>
+// ─── Hero Canvas ─────────────────────────────────────────────────────────────
+(function () {
+    const canvas = document.getElementById('hero-canvas');
+    const ctx = canvas.getContext('2d');
+    let w, h, nodes = [], frame;
+
+    function resize() {
+        w = canvas.width = canvas.offsetWidth;
+        h = canvas.height = canvas.offsetHeight;
+    }
+
+    function initNodes() {
+        nodes = [];
+        const count = Math.floor((w * h) / 18000);
+        for (let i = 0; i < count; i++) {
+            nodes.push({
+                x: Math.random() * w, y: Math.random() * h,
+                vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3,
+                r: Math.random() * 2 + 1
+            });
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, w, h);
+        // draw connections
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d < 120) {
+                    ctx.beginPath();
+                    ctx.moveTo(nodes[i].x, nodes[i].y);
+                    ctx.lineTo(nodes[j].x, nodes[j].y);
+                    ctx.strokeStyle = `rgba(0,217,245,${.18 * (1 - d / 120)})`;
+                    ctx.lineWidth = .5;
+                    ctx.stroke();
+                }
+            }
+        }
+        // draw nodes
+        nodes.forEach(n => {
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,217,245,.45)';
+            ctx.fill();
+            // move
+            n.x += n.vx; n.y += n.vy;
+            if (n.x < 0 || n.x > w) n.vx *= -1;
+            if (n.y < 0 || n.y > h) n.vy *= -1;
+        });
+        frame = requestAnimationFrame(draw);
+    }
+
+    resize(); initNodes(); draw();
+    window.addEventListener('resize', () => { cancelAnimationFrame(frame); resize(); initNodes(); draw(); });
+})();
+
+// ─── Reveal on scroll ────────────────────────────────────────────────────────
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: .12 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ─── Drawer ───────────────────────────────────────────────────────────────────
+const overlay   = document.getElementById('drawer-overlay');
+const drawer    = document.getElementById('drawer');
+const drawerContent = document.getElementById('drawer-content');
+const drawerTitle   = document.getElementById('drawer-title');
+const closeBtn  = document.getElementById('drawer-close');
+const prevBtn   = document.getElementById('drawer-prev');
+const nextBtn   = document.getElementById('drawer-next');
+
+const cards = Array.from(document.querySelectorAll('.challenge-card'));
+let currentIdx = -1;
+
+function openDrawer(idx) {
+    currentIdx = idx;
+    const card = cards[idx];
+    const href = card.getAttribute('href');
+    const title = card.querySelector('.card-title').innerText.replace('\n', ' ');
+
+    drawerTitle.textContent = title;
+    drawerContent.innerHTML = '<div class="drawer-loading">LOADING CHALLENGE</div>';
+    overlay.classList.add('open');
+    drawer.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    prevBtn.disabled = idx === 0;
+    nextBtn.disabled = idx === cards.length - 1;
+
+    fetch(href)
+        .then(r => r.ok ? r.text() : Promise.reject(r.status))
+        .then(md => {
+            drawerContent.innerHTML = marked.parse(md);
+            drawer.querySelector('.drawer-body').scrollTop = 0;
+        })
+        .catch(() => {
+            drawerContent.innerHTML = '<p style="color:var(--text-2);font-family:\'Fira Code\',monospace;font-size:.8rem;padding:2rem 0">Could not load challenge file. Open it directly: <a href="' + href + '" style="color:var(--cyan)">' + href + '</a></p>';
+        });
+}
+
+function closeDrawer() {
+    overlay.classList.remove('open');
+    drawer.classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+cards.forEach((card, i) => {
+    card.addEventListener('click', e => {
+        e.preventDefault();
+        openDrawer(i);
+    });
+});
+
+closeBtn.addEventListener('click', closeDrawer);
+overlay.addEventListener('click', closeDrawer);
+prevBtn.addEventListener('click', () => { if (currentIdx > 0) openDrawer(currentIdx - 1); });
+nextBtn.addEventListener('click', () => { if (currentIdx < cards.length - 1) openDrawer(currentIdx + 1); });
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeDrawer();
+    if (drawer.classList.contains('open')) {
+        if (e.key === 'ArrowLeft' && currentIdx > 0) openDrawer(currentIdx - 1);
+        if (e.key === 'ArrowRight' && currentIdx < cards.length - 1) openDrawer(currentIdx + 1);
+    }
+});
+</script>
+
+</body>
+</html>
