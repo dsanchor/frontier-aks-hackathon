@@ -146,7 +146,8 @@
             font-weight: 700; line-height: .85; letter-spacing: -.02em; color: #fff;
         }
 
-        .hero-title .accent { color: var(--cyan); display: block; }
+        .hero-title span { display: block; }
+        .hero-title .accent { color: var(--cyan); }
 
         .hero-subtitle {
             margin-top: 2rem; font-size: clamp(1rem, 2.5vw, 1.2rem);
@@ -743,9 +744,9 @@
     <div class="hero-content">
         <div class="hero-label">Expert Track · AKS · 2026</div>
         <h1 class="hero-title display">
-            FRONTIER<br>
-            <span class="accent">AKS</span><br>
-            HACKATHON
+            <span>FRONTIER</span>
+            <span class="accent">AKS</span>
+            <span>HACKATHON</span>
         </h1>
         <p class="hero-subtitle">
             Deploy, harden, and operate a production-grade Azure Kubernetes Service
