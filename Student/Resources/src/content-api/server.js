@@ -1,14 +1,14 @@
 'use strict';
 
 var express = require('express');
-var bodyParser = require('body-parser');
 var routes = require('./routes');
+var db = require('./db');
 
 var app = express();
 var port = 3001;
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 routes(app);
 
 // catch 404 and forward to error handler
@@ -18,10 +18,7 @@ app.use(function(req, res, next) {
   next(err);
 });
 
-// error handlers
-
-// development error handler
-// will print stacktrace
+// development error handler — prints stacktrace
 if (app.get('env') === 'development') {
   app.use(function(err, req, res, next) {
     res.status(err.status || 500);
@@ -32,8 +29,7 @@ if (app.get('env') === 'development') {
   });
 }
 
-// production error handler
-// no stacktraces leaked to user
+// production error handler — no stacktrace leaked
 app.use(function(err, req, res, next) {
   res.status(err.status || 500);
   res.send({
@@ -42,6 +38,13 @@ app.use(function(err, req, res, next) {
   });
 });
 
-var server = app.listen(port, () => {
-  console.log(`Listening on port ${port}`);
-});
+db.init()
+  .then(function() {
+    app.listen(port, function() {
+      console.log(`Listening on port ${port}`);
+    });
+  })
+  .catch(function(err) {
+    console.error('Failed to initialise database:', err.message);
+    process.exit(1);
+  });

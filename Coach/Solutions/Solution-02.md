@@ -16,8 +16,8 @@
 ### Common Issues
 
 - **AKS Automatic not available:** Still preview in some regions. Fall back to Standard path.
-- **Cilium + Overlay not available:** Requires K8s >= 1.29. Confirm `--kubernetes-version 1.29`
-  or later is used.
+- **Cilium + Overlay not available:** Requires K8s >= 1.30. Confirm your cluster is running
+  1.30 or later.
 - **`--network-dataplane cilium` vs `--network-policy cilium`:** `--network-dataplane cilium`
   replaces the Linux iptables/kube-proxy dataplane with Cilium's eBPF engine. When this flag
   is set, Cilium automatically handles NetworkPolicy enforcement — there is no need to also
@@ -34,6 +34,8 @@ LOCATION=eastus
 CLUSTER_NAME=aks-frontier
 ACR_NAME=<ACR_NAME_FROM_CHALLENGE_01>
 
+# Enable Node Auto-Provisioning (Karpenter-based) for Challenge 06.
+# This requires --network-dataplane cilium and --network-plugin-mode overlay.
 az aks create \
   --resource-group $RG \
   --name $CLUSTER_NAME \
@@ -41,6 +43,7 @@ az aks create \
   --network-plugin azure \
   --network-plugin-mode overlay \
   --network-dataplane cilium \
+  --node-provisioning-mode Auto \
   --enable-oidc-issuer \
   --enable-workload-identity \
   --node-count 3 \

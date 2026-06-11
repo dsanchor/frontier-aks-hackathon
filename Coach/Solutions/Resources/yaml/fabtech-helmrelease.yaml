@@ -1,0 +1,24 @@
+# Challenge 07 — GitOps with Flux v2
+# Commit this file to your fleet repository under clusters/production/
+# Replace the sourceRef name/namespace to match your Flux configuration.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: fabtech
+  namespace: fabtech
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: ./charts/chart
+      sourceRef:
+        kind: GitRepository
+        name: cluster-config
+        namespace: cluster-config
+  values:
+    api:
+      image:
+        tag: v1
+    web:
+      image:
+        tag: v1

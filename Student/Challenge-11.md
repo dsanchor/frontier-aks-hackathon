@@ -13,7 +13,7 @@ Enterprise AKS environments often require private management access, controlled 
 - Provide a controlled outbound path for cluster and workload egress through Azure Firewall or NAT Gateway.
 - Document the required outbound dependencies so the cluster can function without unrestricted internet access.
 - Enable private connectivity for Azure Container Registry so image pulls do not rely on the public internet.
-- Configure the ingress path to use an internal load balancer rather than a public entry point.
+- Configure the Gateway to use an internal load balancer rather than a public entry point.
 - Review how the application and platform traffic flows change when private endpoints and controlled egress are introduced.
 
 ## Hints
@@ -21,7 +21,7 @@ Enterprise AKS environments often require private management access, controlled 
 - Private clusters affect both day-to-day administration and troubleshooting workflows.
 - Egress control is about choosing and governing the approved outbound path, not simply blocking everything.
 - Private DNS is an important part of making private endpoints work consistently.
-- Internal ingress is often paired with private front-end patterns elsewhere in the architecture.
+- Internal Gateway LB is often paired with private front-end patterns elsewhere in the architecture.
 
 ## Notes
 
@@ -41,7 +41,9 @@ Enterprise AKS environments often require private management access, controlled 
 1. The AKS control plane is private and is not exposed through a public API server endpoint.
 2. Cluster and workload egress follow an intentional path through Azure Firewall or NAT Gateway.
 3. Azure Container Registry is reachable through a private endpoint for image pulls.
-4. The ingress controller uses an internal load balancer.
+4. The Gateway uses an internal load balancer — annotate the `Gateway` resource with
+   `service.beta.kubernetes.io/azure-load-balancer-internal: "true"` or configure App Routing
+   via `az aks approuting update --nginx Internal`.
 5. You can explain to your coach how private access, controlled egress, and private registry connectivity improve the enterprise security posture.
 
 ## Learning Resources

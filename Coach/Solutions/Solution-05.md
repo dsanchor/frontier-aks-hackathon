@@ -12,8 +12,9 @@
   structured fields (`Namespace`, `PodName`, `LogLevel`).
 - `az monitor account create` is a relatively new command — requires az CLI >= 2.50. If it
   fails, update with `az upgrade`.
-- The old `az aks enable-addons --addons monitoring` path for Container Insights still works
-  for log collection, but **NOT** for metrics — that path is being replaced by Managed Prometheus.
+- The canonical modern command for Container Insights is
+  `az aks addon enable --addon monitoring`. It still covers log collection, but **NOT** metrics
+  — for metrics, use Managed Prometheus.
 
 ### Common Issues
 
@@ -92,16 +93,16 @@ az monitor log-analytics workspace create \
   --workspace-name $LOG_WS_NAME \
   --location $LOCATION
 
-LOG_WS_ID=$(az monitor log-analytics workspace show \
+LOG_ANALYTICS_WORKSPACE_ID=$(az monitor log-analytics workspace show \
   --resource-group $RG \
   --workspace-name $LOG_WS_NAME \
   --query id -o tsv)
 
-az aks enable-addons \
+az aks addon enable \
   --resource-group $RG \
   --name $CLUSTER_NAME \
-  --addons monitoring \
-  --workspace-resource-id $LOG_WS_ID
+  --addon monitoring \
+  --workspace-resource-id $LOG_ANALYTICS_WORKSPACE_ID
 ```
 
 ### Part 4: KQL Query Examples
@@ -140,9 +141,6 @@ sum(container_memory_working_set_bytes{container!=""}) by (pod, namespace)
 
 # Pod Restart Count
 sum(kube_pod_container_status_restarts_total) by (namespace, pod)
-
-# HTTP Request Rate (if NGINX ingress is instrumented)
-sum(rate(nginx_ingress_controller_requests[5m])) by (ingress, namespace)
 ```
 
 ### Part 6: Azure Monitor Alert Rule + Action Group

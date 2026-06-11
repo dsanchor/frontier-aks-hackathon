@@ -1,0 +1,42 @@
+# Challenge 03 — Option A: Gateway API via AKS App Routing add-on
+# Apply after enabling App Routing:
+#   kubectl get gatewayclass
+#   az aks approuting enable -g <RG> -n <CLUSTER>   # if needed
+#   kubectl get gatewayclass                        # expect webapprouting.kubernetes.azure.com
+#
+#   kubectl apply -f gateway.yaml -n fabtech
+#   kubectl get gateway -n fabtech      # wait for READY=True
+#   kubectl get httproute -n fabtech    # confirm status: Accepted
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: fabtech-gateway
+  namespace: fabtech
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+spec:
+  gatewayClassName: webapprouting.kubernetes.azure.com
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: fabtech-route
+  namespace: fabtech
+spec:
+  parentRefs:
+    - name: fabtech-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: fabtech-web
+          port: 3000

@@ -10,7 +10,6 @@
   option (cheaper, less flexible).
 - `az aks command invoke` is the essential tool for running `kubectl` commands against a
   private cluster without a jumpbox or VPN. Coaches should demo this early.
-  node pools with `--vm-set-type AvailabilitySet`. All new node pools must use VMSS.
 
 ### Common Issues
 
@@ -154,23 +153,53 @@ az aks command invoke \
 # Should match the NAT Gateway public IP
 ```
 
-### Part 4: Internal Load Balancer for Ingress
+### Part 4: Internal Load Balancer for the Gateway
+
+When using **App Routing with Gateway API**, configure the internal load balancer by annotating
+the `Gateway` resource. The App Routing controller reads this annotation and provisions the
+underlying Azure Load Balancer as internal.
+
+**Option 1: Annotate the Gateway resource**
 
 ```yaml
-# internal-ingress-annotation.yaml
-# Add this annotation to the App Routing Ingress Service or use an IngressClass
-apiVersion: v1
-kind: Service
+# gateway-internal.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
 metadata:
-  name: nginx-internal
-  namespace: app-routing-system
+  name: fabtech-gateway
+  namespace: fabtech
   annotations:
     service.beta.kubernetes.io/azure-load-balancer-internal: "true"
 spec:
-  type: LoadBalancer
-  selector:
-    app: nginx
-  ports:
-  - port: 80
-    targetPort: 80
+  gatewayClassName: webapprouting.kubernetes.azure.com
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
 ```
+
+```bash
+kubectl apply -f gateway-internal.yaml
+```
+
+**Option 2: Configure App Routing from the CLI**
+
+```bash
+az aks approuting update \
+  --resource-group $RG \
+  --name $CLUSTER_NAME \
+  --nginx Internal
+```
+
+**Verify the internal load balancer**
+
+```bash
+kubectl get gateway -n fabtech
+kubectl get svc -n app-routing-system
+```
+
+After a minute the Gateway's associated Service should show an **internal RFC 1918 IP**
+(e.g. `10.x.x.x`) rather than a public IP.

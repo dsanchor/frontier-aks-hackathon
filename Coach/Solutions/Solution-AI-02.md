@@ -6,14 +6,16 @@
 
 - **Model download takes 5–15 minutes** (Phi-3.5-mini is ~4 GB). Teams must plan for this
   wait time during the challenge.
-- **Cost alert:** GPU nodes for KAITO (Standard_NC6s_v3 or NC4as_T4_v3) cost
-  $0.50–$2.00/hour. Scale down immediately after the challenge.
+- **Cost alert:** GPU nodes for KAITO (`Standard_NC4as_T4_v3`) cost roughly
+  $0.50–$0.75/hour. Scale down immediately after the challenge.
 - **KAITO AI Toolchain Operator is GA as of AKS 1.30.** No feature flag registration is
   required for clusters running AKS 1.30+. For older clusters or regions still in preview,
   register in advance and wait up to 60 minutes for propagation:
   `az feature register --namespace Microsoft.ContainerService --name AIToolchainOperatorPreview`
 - If the AI Toolchain Operator is not available in the team's region, teams can
   install KAITO manually via Helm.
+- Verify the installed KAITO version with `kubectl api-resources | grep kaito` and use the
+  appropriate `apiVersion` for the installed CRDs.
 
 ### Common Issues
 
@@ -63,13 +65,17 @@ helm install kaito kaito/kaito-workspace \
 
 ```yaml
 # workspace-phi3-mini.yaml
-apiVersion: kaito.sh/v1alpha1
+# Verify the installed KAITO API version:
+# kubectl api-resources | grep kaito
+# Use v1alpha1 if that is what your add-on version serves.
+apiVersion: kaito.sh/v1beta1
 kind: Workspace
 metadata:
   name: workspace-phi3-mini
   namespace: kaito-workspace
 spec:
   resource:
+    count: 1 # Number of GPU nodes to provision (not replica count)
     instanceType: "Standard_NC4as_T4_v3"
     labelSelector:
       matchLabels:
@@ -114,10 +120,10 @@ curl -X POST http://localhost:8080/chat \
 ### Part 4: Scale Inference Deployment
 
 ```bash
-# Scale up replicas for higher throughput
-kubectl patch workspace workspace-phi3-mini \
-  -n kaito-workspace \
-  --type=merge \
+# KAITO manages inference pod replicas automatically based on the node count
+# To scale, update spec.resource.count (provisions more GPU nodes)
+kubectl patch workspace workspace-phi3-mini -n kaito-workspace \
+  --type merge \
   -p '{"spec":{"resource":{"count":2}}}'
 
 kubectl get workspace workspace-phi3-mini -n kaito-workspace
@@ -134,7 +140,7 @@ az aks nodepool scale \
 
 ```yaml
 # workspace-with-identity.yaml
-apiVersion: kaito.sh/v1alpha1
+apiVersion: kaito.sh/v1beta1
 kind: Workspace
 metadata:
   name: workspace-phi3-private
@@ -143,6 +149,7 @@ metadata:
     azure.workload.identity/client-id: "<MANAGED_IDENTITY_CLIENT_ID>"
 spec:
   resource:
+    count: 1 # Number of GPU nodes to provision (not replica count)
     instanceType: "Standard_NC4as_T4_v3"
     labelSelector:
       matchLabels:

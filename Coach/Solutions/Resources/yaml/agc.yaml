@@ -1,0 +1,50 @@
+# Challenge 03 — Application Gateway for Containers (AGC)
+# Prerequisites: ALB Controller installed via Helm with Workload Identity.
+# See Coach/Solutions/Solution-03.md for full ALB Controller install steps.
+#
+# Replace <SUB_ID>, <NODE_RG>, <VNET>, and <AGC_SUBNET> with your values.
+#
+#   kubectl apply -f agc.yaml
+apiVersion: alb.networking.azure.io/v1
+kind: ApplicationLoadBalancer
+metadata:
+  name: fabtech-alb
+  namespace: azure-alb-system
+spec:
+  associations:
+    - /subscriptions/<SUB_ID>/resourceGroups/<NODE_RG>/providers/Microsoft.Network/virtualNetworks/<VNET>/subnets/<AGC_SUBNET>
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: fabtech-agc-gateway
+  namespace: fabtech
+  annotations:
+    alb.networking.azure.io/alb-namespace: azure-alb-system
+    alb.networking.azure.io/alb-name: fabtech-alb
+spec:
+  gatewayClassName: azure-alb-external
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: fabtech-agc-route
+  namespace: fabtech
+spec:
+  parentRefs:
+    - name: fabtech-agc-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: fabtech-web
+          port: 3000

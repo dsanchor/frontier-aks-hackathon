@@ -21,6 +21,8 @@ managed services.
   - Explore the pre-built Kubernetes dashboards that appear automatically.
 - Enable **Container Insights** log collection to a Log Analytics workspace.
 - Use **KQL queries** in Log Analytics to query container logs from the `fabtech` namespace.
+  > **Hint:** Use the `ContainerLogV2` table (current schema with structured fields like
+  > `Namespace` and `PodName`). The legacy `ContainerLog` table is deprecated.
 - Build a **custom Grafana dashboard** with at least two panels showing cluster health metrics
   (e.g., CPU usage by namespace, pod restart count).
 - Generate some load on the application and observe the metrics change in Grafana.

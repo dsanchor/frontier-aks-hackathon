@@ -19,9 +19,9 @@
 - **Sidecars not injecting:** Verify the namespace label:
   `kubectl get namespace fabtech --show-labels | grep istio-injection`
   Then restart pods: `kubectl rollout restart deployment -n fabtech`
-- **mTLS blocking traffic from ingress:** The App Routing ingress controller is not
-  part of the mesh. Create an exception in the `PeerAuthentication` or configure the ingress
-  to go through an Istio ingress gateway.
+- **mTLS blocking traffic from the Gateway:** The App Routing Gateway is not
+  part of the mesh by default. Create an exception in the `PeerAuthentication` or configure
+  the Gateway to go through an Istio ingress gateway.
 - **Kiali not available in AKS managed Istio:** Managed Istio ships without Kiali by default.
   Teams can observe traffic via the Istio metrics in Grafana (Managed Prometheus integration).
 
@@ -66,7 +66,7 @@ kubectl get pods -n fabtech
 
 ```yaml
 # peer-auth.yaml
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -79,15 +79,38 @@ spec:
 ```bash
 kubectl apply -f peer-auth.yaml
 
-# Verify — traffic from a non-mesh pod should fail
-kubectl run test-plain --image=curlimages/curl --restart=Never -- \
+# Verify — traffic from a non-mesh pod should fail.
+# Run this from the default namespace so the pod is outside the mesh (no sidecar);
+# pods outside the mesh cannot reach a service protected by STRICT mTLS.
+kubectl run test-plain -n default --image=curlimages/curl --restart=Never -- \
   curl -s http://fabtech-api.fabtech.svc.cluster.local:3001/api/health
 # Expected: connection reset or SSL handshake failure
 ```
 
 ### Part 4: Canary Traffic Split
 
-Deploy a v2 of the API (can be same image, different label):
+First, make sure the main `fabtech-api` Service only selects v1 pods. Otherwise,
+the `fabtech-api-v2` pods will receive live traffic before the `VirtualService`
+canary is in place.
+
+```yaml
+# fabtech-api-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: fabtech-api
+  namespace: fabtech
+spec:
+  selector:
+    app: fabtech-api
+    version: v1
+  ports:
+  - port: 3001
+    targetPort: 3001
+```
+
+Then deploy a v2 of the API (the existing v1 pods should keep `app: fabtech-api`
+and `version: v1` labels):
 
 ```yaml
 # fabtech-api-v2-deployment.yaml
@@ -173,7 +196,7 @@ done
 
 ```yaml
 # authz-policy.yaml
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: allow-web-to-api

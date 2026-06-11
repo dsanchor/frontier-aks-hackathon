@@ -1,6 +1,6 @@
 # Challenge AI-01 — AI on AKS Foundations — Coach Solution
 
-[< Previous Solution](./Solution-12.md) | [Home](../../README.md) | [Next Solution >](./Solution-AI-02.md)
+[< Previous Solution](./Solution-13.md) | [Home](../../README.md) | [Next Solution >](./Solution-AI-02.md)
 
 ## Notes & Guidance
 
@@ -143,6 +143,11 @@ spec:
             secretKeyRef:
               name: hf-token
               key: token
+        volumeMounts:
+        - name: model-cache
+          mountPath: /data
+        - name: tmp
+          mountPath: /tmp
         resources:
           limits:
             nvidia.com/gpu: 1
@@ -150,7 +155,12 @@ spec:
           requests:
             memory: "8Gi"
         ports:
-        - containerPort: 80
+        - containerPort: 3000
+      volumes:
+      - name: model-cache
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -161,12 +171,14 @@ spec:
   selector:
     app: hf-inference
   ports:
-  - port: 80
-    targetPort: 80
+  - port: 3000
+    targetPort: 3000
 ```
 
 ```bash
 # Create HuggingFace token secret
+# Get your HuggingFace token from https://huggingface.co/settings/tokens
+# (create a Read token)
 # Use `read -rs` to avoid exposing the token in shell history
 read -rs HF_TOKEN && echo "HF_TOKEN set"
 kubectl create secret generic hf-token \
@@ -177,7 +189,7 @@ unset HF_TOKEN
 kubectl apply -f hf-inference-deployment.yaml
 
 # Test inference
-kubectl port-forward svc/hf-inference 8080:80 -n fabtech &
+kubectl port-forward svc/hf-inference 8080:3000 -n fabtech &
 curl http://localhost:8080/generate \
   -H "Content-Type: application/json" \
   --data '{"inputs": "What is Kubernetes?", "parameters": {"max_new_tokens": 50}}'

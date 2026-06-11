@@ -6,7 +6,7 @@
 
 - **Azure Policy enforcement delay:** After assigning a policy, allow 5–10 minutes before
   enforcement begins. Teams testing immediately may not see the block yet.
-- `az aks enable-addons --addons azure-policy` installs OPA Gatekeeper into
+- `az aks addon enable --addon azure-policy` installs OPA Gatekeeper into
   `gatekeeper-system`. Pods should appear within 2–3 minutes.
 - For the network policy demo, Cilium policies allow L7 HTTP filtering — this is a powerful
   differentiator from standard Kubernetes NetworkPolicy.
@@ -39,7 +39,19 @@ az aks update \
   --resource-group $RG \
   --name $CLUSTER_NAME \
   --enable-aad \
+  --enable-azure-rbac \
   --aad-admin-group-object-ids $ADMIN_GROUP_ID
+
+AKS_ID=$(az aks show --resource-group $RG --name $CLUSTER_NAME --query id -o tsv)
+DEVELOPER_GROUP_ID=$(az ad group create --display-name "AKS-Developers" \
+  --mail-nickname "aks-developers" --query id -o tsv)
+
+# Example Azure RBAC for Kubernetes authorization
+az role assignment create \
+  --assignee-object-id $DEVELOPER_GROUP_ID \
+  --assignee-principal-type Group \
+  --role "Azure Kubernetes Service RBAC Reader" \
+  --scope $AKS_ID
 
 # Disable local admin accounts — forces all access through Entra ID,
 # preventing bypass via `az aks get-credentials --admin`
@@ -53,7 +65,11 @@ az aks get-credentials --resource-group $RG --name $CLUSTER_NAME --overwrite-exi
 kubelogin convert-kubeconfig -l azurecli
 ```
 
-`developer` Role and RoleBinding:
+- `--enable-aad`: enables Entra authentication (**who you are**).
+- `--enable-azure-rbac`: enables Azure RBAC for Kubernetes authorization (**what you can do**),
+  using Azure role assignments instead of or alongside Kubernetes RoleBindings.
+
+Optional Kubernetes RBAC example (**not** an Azure RBAC role assignment):
 
 ```yaml
 # developer-rbac.yaml
@@ -80,7 +96,7 @@ metadata:
   namespace: fabtech
 subjects:
 - kind: Group
-  name: "<DEVELOPER_GROUP_OBJECT_ID>"
+  name: "<DEVELOPER_GROUP_ID>"
   apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role
@@ -91,7 +107,7 @@ roleRef:
 ```bash
 kubectl apply -f developer-rbac.yaml
 
-# Test
+# Test Kubernetes RBAC RoleBinding behavior
 kubectl auth can-i delete pods -n fabtech --as-group="<DEVELOPER_GROUP_ID>"
 # Expected: no
 kubectl auth can-i get pods -n fabtech --as-group="<DEVELOPER_GROUP_ID>"
@@ -101,10 +117,10 @@ kubectl auth can-i get pods -n fabtech --as-group="<DEVELOPER_GROUP_ID>"
 ### Part 2: Azure Policy Add-on
 
 ```bash
-az aks enable-addons \
+az aks addon enable \
   --resource-group $RG \
   --name $CLUSTER_NAME \
-  --addons azure-policy
+  --addon azure-policy
 
 kubectl get pods -n kube-system | grep azure-policy
 kubectl get pods -n gatekeeper-system
@@ -134,7 +150,7 @@ EOF
 ```yaml
 # network-policies.yaml
 ---
-# Default deny all ingress
+# Default deny all ingress traffic
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -145,11 +161,11 @@ spec:
   policyTypes:
   - Ingress
 ---
-# Allow ingress controller → web
+# Allow Gateway (App Routing) → web
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-ingress-to-web
+  name: allow-gateway-to-web
   namespace: fabtech
 spec:
   podSelector:

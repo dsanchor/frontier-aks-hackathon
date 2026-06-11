@@ -14,7 +14,7 @@ requirements, and a suggested agenda.
 | 00 | Prerequisites | [Solution-00.md](./Solutions/Solution-00.md) |
 | 01 | Containers & ACR | [Solution-01.md](./Solutions/Solution-01.md) |
 | 02 | AKS Cluster Deployment | [Solution-02.md](./Solutions/Solution-02.md) |
-| 03 | App Deployment & Helm Ingress | [Solution-03.md](./Solutions/Solution-03.md) |
+| 03 | App Deployment & Gateway API | [Solution-03.md](./Solutions/Solution-03.md) |
 | 04 | Workload Identity & Secrets | [Solution-04.md](./Solutions/Solution-04.md) |
 | 05 | Observability | [Solution-05.md](./Solutions/Solution-05.md) |
 | 06 | Autoscaling | [Solution-06.md](./Solutions/Solution-06.md) |
@@ -116,10 +116,10 @@ solution file. The "When to intervene" column is a suggestion — trust your rea
 | 00 | Prerequisites | Cloud-native toolchain; Azure resource providers | WSL1 vs WSL2; missing `kubelogin`; unregistered providers | 30 min | After 20 min if still installing tools |
 | 01 | Containers & ACR | Docker layering; ACR Tasks; managed identity auth | `az acr login` token expiry; ACR SKU must be ≥ Standard for Workload Identity | 45 min | If images fail to push after 30 min |
 | 02 | AKS Cluster Deployment | Azure CNI Overlay; Workload Identity; availability zones | Quota exceeded (request increase ahead of time); `--enable-oidc-issuer` required for WI | 45 min | If cluster stuck Provisioning > 20 min |
-| 03 | App Deployment & Helm | Helm chart structure; App Routing add-on; ingress DNS | Helm values file versus `--set`; App Routing requires DNS zone or nip.io | 60 min | After 45 min if app not accessible |
+| 03 | App Deployment & Gateway API | Helm chart structure; App Routing add-on; Gateway API routing | Helm values file versus `--set`; verify GatewayClass exists before applying Gateway | 60 min | After 45 min if app not accessible |
 | 04 | Workload Identity & Secrets | Federated credentials; UAMI; Secrets Store CSI | Namespace of service account must match federated credential; CSI driver pod must be Running | 60 min | After 40 min on federated credential config |
 | 05 | Observability | Managed Prometheus scrape config; Container Insights; Grafana | DCR must be linked to cluster; Grafana datasource must point to correct workspace | 60 min | After 40 min if no metrics appear |
-| 06 | Autoscaling | HPA vs KEDA; Karpenter / NAP; VPA | KEDA ScaledObject must reference correct deployment; Karpenter needs `--enable-keda` on cluster | 60 min | After 50 min if nodes not provisioning |
+| 06 | Autoscaling | HPA vs KEDA; Karpenter / NAP; VPA | KEDA ScaledObject must reference correct deployment; NAP/Karpenter requires cluster created in Ch 02 with `--node-provisioning-mode Auto`, `--network-dataplane cilium`, and `--network-plugin-mode overlay` — verify with `az aks show --query agentPoolProfiles[].nodeProvisioningMode` | 60 min | After 50 min if nodes not provisioning |
 | 07 | GitOps with Flux v2 | GitRepository; Kustomization; source vs reconcile | PAT token scopes; Flux needs write access for image automation; `flux reconcile` is your friend | 60 min | After 40 min if Kustomization stuck |
 | 08 | AKS Security | Entra RBAC; Azure Policy / OPA Gatekeeper; Defender | Policy takes up to 20 min to enforce; Defender plan must be enabled at subscription level | 60 min | After 45 min on policy assignment |
 | 09 | Istio Service Mesh | mTLS PeerAuthentication; VirtualService; sidecar injection | Namespace label `istio.io/rev` must match revision; wait for sidecar containers before testing | 60 min | After 40 min if traffic routing broken |
@@ -135,8 +135,8 @@ solution file. The "When to intervene" column is a suggestion — trust your rea
 
 ---
 
-Provide participants with a `Resources.zip` containing the FabTechOps source code
-(Dockerfiles, app code, and sample manifests). If teams run into build issues, the
+The FabTechOps source code (Dockerfiles, app code, and sample manifests) is available in
+[`Student/Resources/src/`](../Student/Resources/src/). If teams run into build issues, the
 pre-built public images on Docker Hub can be imported directly into their ACR as a fallback:
 
 - `docker.io/whatthehackmsft/api:latest` → `fabtech-api:v1`
@@ -151,4 +151,3 @@ Remind all teams to delete resources at the end:
 ```bash
 az group delete --name rg-frontier-aks --no-wait --yes
 ```
-

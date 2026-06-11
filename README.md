@@ -42,8 +42,8 @@ By the end of the hack you will have hands-on experience with:
   - Containerize the sample application and publish it to ACR using Workload Identity
 - Challenge 02: **[AKS Cluster Deployment](Student/Challenge-02.md)**
   - Deploy a production-ready AKS cluster with Azure CNI Overlay, Workload Identity, and availability zones
-- Challenge 03: **[App Deployment & Helm Ingress](Student/Challenge-03.md)**
-  - Package the application as a Helm chart and expose it via the App Routing add-on
+- Challenge 03: **[App Deployment & Gateway API](Student/Challenge-03.md)**
+  - Package the application as a Helm chart and expose it via Gateway API with the App Routing add-on
 - Challenge 04: **[Workload Identity & Secrets Management](Student/Challenge-04.md)**
   - Replace hardcoded secrets with Azure Key Vault + Secrets Store CSI and Entra federated credentials
 - Challenge 05: **[Observability](Student/Challenge-05.md)**
@@ -95,11 +95,11 @@ By the end of the hack you will have hands-on experience with:
 | Tier | Image | Description |
 |------|-------|-------------|
 | Frontend | `whatthehackmsft/web` | React-based conference info site |
-| API | `whatthehackmsft/api` | Node.js REST API backed by a database |
-| Database | Azure SQL / PostgreSQL | Managed PaaS database |
+| API | `whatthehackmsft/api` | Node.js REST API (serves JSON data; connects to PostgreSQL if `DATABASE_URL` is set) |
+| Database | Azure Database for PostgreSQL | Managed PaaS database (optional — API falls back to bundled JSON without it) |
 
 Pre-built images are available on Docker Hub at `whatthehackmsft/web` and `whatthehackmsft/api`.
-Coaches can provide a `Resources.zip` with source code for Challenge 01.
+Source code for the sample application is available in [`Student/Resources/src/`](./Student/Resources/src/).
 
 ## Repository Contents
 
@@ -108,7 +108,7 @@ Coaches can provide a `Resources.zip` with source code for Challenge 01.
 ├── README.md               # Hack description & table of contents
 ├── Student/
 │   ├── Challenge-00.md     # through Challenge-13.md, Challenge-AI-01.md, Challenge-AI-02.md
-│   └── Resources/          # FabTechOps source code & manifests (provided as Resources.zip)
+│   └── Resources/          # FabTechOps source code & manifests
 └── Coach/
     ├── README.md           # Coach's guide, agenda, coaching philosophy, and per-challenge notes
     └── Solutions/          # Per-challenge solution guides (coaches only)

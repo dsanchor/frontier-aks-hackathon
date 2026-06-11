@@ -29,7 +29,7 @@ no static credentials in pods.
   - Mount the Key Vault secret as a volume via the CSI driver
   - Read the connection string from the mounted path — **no environment variables with hardcoded values**
 
-> **NOTE:** Sample `SecretProviderClass` YAML is provided in your `Resources.zip`.
+> **NOTE:** Sample `SecretProviderClass` YAML is provided in [`Student/Resources/src/`](./Resources/src/).
 
 ## Success Criteria
 
@@ -44,7 +44,7 @@ no static credentials in pods.
 ## Advanced Challenges (Optional)
 
 - Sync the Key Vault secret as a Kubernetes Secret object using the `secretObjects` field in `SecretProviderClass`.
-- Enable SSL on the ingress controller and supply the TLS certificate from Key Vault.
+- Enable TLS termination on the Gateway and supply the TLS certificate from Key Vault using the App Routing add-on's Key Vault integration.
 
 ## Learning Resources
 

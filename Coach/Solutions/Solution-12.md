@@ -123,31 +123,48 @@ kubectl get namespace fabtech
 ### Part 4: Staged Rollout Strategy for Upgrades
 
 ```bash
-# Assign member clusters to groups first
+# Member clusters must be assigned to update groups before creating the update run.
 az fleet member update \
   --resource-group $RG \
   --fleet-name $FLEET_NAME \
   --name member1 \
-  --update-group canary-group
+  --update-group group1
 
 az fleet member update \
   --resource-group $RG \
   --fleet-name $FLEET_NAME \
   --name member2 \
-  --update-group production-group
+  --update-group group1
 
-# Create and start the upgrade run (dry-run to show without executing)
+# Create a stages definition file (controls rollout order across update groups)
+cat > stages.json << 'EOF'
+{
+  "stages": [
+    {
+      "name": "stage1",
+      "groups": [
+        {
+          "name": "group1"
+        }
+      ],
+      "afterStageWaitInSeconds": 60
+    }
+  ]
+}
+EOF
+
+# Create and start the upgrade run
 az fleet updaterun create \
   --resource-group $RG \
   --fleet-name $FLEET_NAME \
-  --name upgrade-1-31 \
+  --name upgrade-1-33 \
   --upgrade-type Full \
-  --kubernetes-version 1.31 \
-  --node-image-selection Latest
+  --kubernetes-version 1.33 \
+  --stages @stages.json
 
-# Show the run (do not start unless time permits)
+# Show the run
 az fleet updaterun show \
   --resource-group $RG \
   --fleet-name $FLEET_NAME \
-  --name upgrade-1-31
+  --name upgrade-1-33
 ```

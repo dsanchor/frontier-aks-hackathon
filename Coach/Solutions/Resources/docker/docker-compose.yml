@@ -1,0 +1,57 @@
+# Docker Compose — FabTechOps (local development)
+#
+# Usage:
+#   # From the repo root:
+#   cp Coach/Solutions/Resources/docker/Dockerfile.api Student/Resources/src/content-api/Dockerfile
+#   cp Coach/Solutions/Resources/docker/Dockerfile.web Student/Resources/src/content-web/Dockerfile
+#   docker compose -f Coach/Solutions/Resources/docker/docker-compose.yml up --build
+#
+# The API connects to PostgreSQL via DATABASE_URL.
+# Remove the DATABASE_URL env var from the api service to run without a database (JSON fallback mode).
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       fabtech
+      POSTGRES_USER:     fabadmin
+      POSTGRES_PASSWORD: fabpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fabadmin -d fabtech"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ../../../Student/Resources/src/content-api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://fabadmin:fabpassword@db:5432/fabtech
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../../../Student/Resources/src/content-web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      CONTENT_API_URL: http://api:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  db-data:

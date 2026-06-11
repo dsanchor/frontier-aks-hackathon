@@ -29,8 +29,8 @@ Once tools are installed, log in to your Azure subscription and verify you have 
 access level. You will also need to ensure the required Azure resource providers are registered
 in your subscription.
 
-Your coach will provide a **`Resources.zip`** file containing source code and manifests used
-in later challenges. Unpack it and keep it handy.
+The source code and manifests used in later challenges are available in the
+[`Student/Resources/src/`](./Resources/src/) folder of this repository.
 
 ## Success Criteria
 
@@ -53,17 +53,17 @@ az --version | head -1
 az account show --query "{name:name,id:id,state:state}" -o table
 
 # 3. kubectl client available
-kubectl version --client --short 2>/dev/null || kubectl version --client
+kubectl version --client
 
 # 4. Helm >= 3.14
-helm version --short
+helm version
 
 # 5. Flux v2
 flux --version
 
 # 6. Resource providers registered
 az provider list \
-  --query "[?namespace=='Microsoft.ContainerService' || namespace=='Microsoft.Monitor' || namespace=='Microsoft.Dashboard' || namespace=='Microsoft.KubernetesConfiguration' || namespace=='Microsoft.ContainerRegistry'].{Provider:namespace,State:registrationState}" \
+  --query "[?namespace=='Microsoft.ContainerService' || namespace=='Microsoft.Monitor' || namespace=='Microsoft.Dashboard' || namespace=='Microsoft.KubernetesConfiguration' || namespace=='Microsoft.ContainerRegistry' || namespace=='Microsoft.Network' || namespace=='Microsoft.Insights'].{Provider:namespace,State:registrationState}" \
   -o table
 
 # 7. Sufficient vCPU quota (need >= 16 Standard D-series)

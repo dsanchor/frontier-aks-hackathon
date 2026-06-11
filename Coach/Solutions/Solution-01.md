@@ -40,16 +40,18 @@ echo "ACR Login Server: $(az acr show --name $ACR_NAME --query loginServer -o ts
 ### Option A — Build with ACR Tasks (recommended, no local Docker)
 
 ```bash
-# Assumes source code is in ./api/ and ./web/ directories
+# Source code lives under Student/Resources/src/
 az acr build \
   --registry $ACR_NAME \
   --image fabtech-api:v1 \
-  ./api/
+  --file Coach/Solutions/Resources/docker/Dockerfile.api \
+  Student/Resources/src/content-api/
 
 az acr build \
   --registry $ACR_NAME \
   --image fabtech-web:v1 \
-  ./web/
+  --file Coach/Solutions/Resources/docker/Dockerfile.web \
+  Student/Resources/src/content-web/
 
 # Tag v2 for rolling-update demo later
 az acr import \

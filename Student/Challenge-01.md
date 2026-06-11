@@ -10,13 +10,13 @@ and verify they are ready for deployment to Kubernetes.
 
 ## Description
 
-Your coach will provide a `Resources.zip` with the application source code. Pre-built images
-are also available on Docker Hub (`whatthehackmsft/web` and `whatthehackmsft/api`) if you
-want to skip the local build.
+The application source code is available in [`Student/Resources/src/`](./Resources/src/).
+Pre-built images are also available on Docker Hub (`whatthehackmsft/web` and `whatthehackmsft/api`)
+if you want to skip the local build.
 
 - Create a new **Azure Resource Group** for all resources used in this hackathon.
-- Deploy an **Azure Container Registry (ACR)** with the appropriate SKU to support the
-  features you will need in later challenges (private endpoints, geo-replication).
+- Deploy an **Azure Container Registry (ACR)** with **Premium SKU** — required for private
+  endpoints (Challenge 11) and geo-replication. Standard SKU will block you later.
 - Build container images for the **API** and **Web** components of FabTechOps and publish
   them to your ACR. You can build locally with Docker or use **ACR Tasks** to build in the cloud.
   - **Hint:** ACR Tasks let you build images directly from source without a local Docker daemon.

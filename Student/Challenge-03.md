@@ -1,37 +1,37 @@
-# Challenge 03 — App Deployment, Ingress & Gateway API
+# Challenge 03 — App Deployment & Gateway API
 
 [< Previous Challenge](./Challenge-02.md) — **[Home](../README.md)** — [Next Challenge >](./Challenge-04.md)
 
 ## Introduction
 
 With a cluster running, it is time to deploy the **FabTechOps** application and expose it
-to the internet. You will package the application as a Helm chart and explore three traffic
-routing approaches AKS supports today: **NGINX via App Routing**, **Kubernetes Gateway API**,
-and **Application Gateway for Containers (AGC)**.
+to the internet. You will package the application as a Helm chart and choose between two
+modern Gateway API-based traffic routing approaches AKS supports today:
+**Gateway API via App Routing** and **Gateway API via Application Gateway for Containers (AGC)**.
 
 ## Description
 
-- Enable the **App Routing add-on** on your cluster to get a managed NGINX ingress controller.
+- Enable the **App Routing add-on** on your cluster.
 - Deploy a **database** for the FabTechOps application. You may use Azure Database for
   PostgreSQL Flexible Server (recommended) or an in-cluster PostgreSQL deployment for development.
 - Package the FabTechOps **API** and **Web** components as a **Helm chart** and deploy them
   to a dedicated namespace in your cluster.
   - The configuration should support changing the image tag and replica count without editing the templates.
-  - **NOTE:** Sample YAML templates are provided in the `Resources.zip` from your coach.
-- Expose the application using **one of the following approaches** (or all three for extra credit):
+  - **NOTE:** A Helm chart skeleton is provided in [`Student/Resources/src/manifests/chart/`](./Resources/src/manifests/chart/).
+- Expose the application using **one of the following approaches** (or both for extra credit):
 
-  **Option A — NGINX Ingress (App Routing add-on)**
-  - Create an `Ingress` resource using `ingressClassName: webapprouting.kubernetes.azure.com`.
-
-  **Option B — Kubernetes Gateway API (App Routing add-on)**
-  - Enable Gateway API support on the App Routing add-on.
+  **Option A — Gateway API via App Routing add-on**
+  - Enable App Routing with `az aks approuting enable` if `kubectl get gatewayclass` does not
+    already show `webapprouting.kubernetes.azure.com` (AKS Automatic may already have it).
+  - Verify the `webapprouting.kubernetes.azure.com` `GatewayClass` exists before applying the
+    `Gateway` resource.
   - Create a `Gateway` resource and an `HTTPRoute` that forwards traffic to the web service.
-  - **Hint:** The App Routing add-on supports `gateway.networking.k8s.io/v1` natively.
+  - **Hint:** The App Routing add-on supports `gateway.networking.k8s.io/v1` natively — no manual CRD install needed.
 
-  **Option C — Application Gateway for Containers (AGC)**
+  **Option B — Gateway API via Application Gateway for Containers (AGC)**
   - Deploy the ALB Controller on your cluster using Workload Identity.
   - Create an `ApplicationLoadBalancer` custom resource and an `HTTPRoute` targeting the web service.
-  - **Hint:** AGC uses the same `HTTPRoute` CRD from the Gateway API spec.
+  - **Hint:** AGC uses the same `HTTPRoute` CRD (`gateway.networking.k8s.io/v1`) from the Gateway API spec.
 
 - Verify the application is accessible from a browser.
 - Demonstrate a **Helm upgrade** (e.g., change the replica count) and a **Helm rollback**.
@@ -41,13 +41,12 @@ and **Application Gateway for Containers (AGC)**.
 ## Success Criteria
 
 1. Both `fabtech-api` and `fabtech-web` deployments have at least 2 pods running.
-2. The application is accessible from a browser via the ingress address or AGC frontend.
-3. For Option A: Ingress resource uses `ingressClassName: webapprouting.kubernetes.azure.com`.
-4. For Option B: A `Gateway` and `HTTPRoute` resource are present and the route status shows `Accepted`.
-5. For Option C: An `ApplicationLoadBalancer` resource exists and the AGC frontend resolves correctly.
-6. Show a successful `helm upgrade` and `helm rollback`.
-7. A `PodDisruptionBudget` exists for `fabtech-api` and `fabtech-web` with `minAvailable: 1`.
-8. Each Deployment uses `topologySpreadConstraints` to distribute pods across availability zones.
+2. The application is accessible from a browser via the Gateway frontend.
+3. For Option A: A `Gateway` and `HTTPRoute` resource are present and the route status shows `Accepted`.
+4. For Option B: An `ApplicationLoadBalancer` resource exists and the AGC frontend resolves correctly.
+5. Show a successful `helm upgrade` and `helm rollback`.
+6. A `PodDisruptionBudget` exists for `fabtech-api` and `fabtech-web` with `minAvailable: 1`.
+7. Each Deployment uses `topologySpreadConstraints` to distribute pods across availability zones.
 
 ## Learning Resources
 

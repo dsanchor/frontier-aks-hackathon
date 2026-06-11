@@ -8,8 +8,9 @@
   `azure.workload.identity/client-id`. The pod gets a token but it belongs to no identity.
 - The `SecretProviderClass` requires the exact `tenantId` and `clientID` — teams copy-paste
   errors here constantly. A `describe` on the pod shows the mount error clearly.
-- `syncSecret.enabled=true` in the CSI Helm values is required to sync Key Vault secrets as
-  Kubernetes Secret objects. Without it, secrets are only available as mounted files.
+- On AKS, prefer the managed `azure-keyvault-secrets-provider` add-on instead of installing
+  the Azure provider via Helm. The managed add-on supports `secretObjects` syncing, so no
+  Helm-specific `syncSecret.enabled` setting is required.
 - **Secrets layered approach**: Kubernetes Secret objects are base64-encoded (not encrypted at rest
   by default). They are better than plaintext env vars but still accessible to anyone with `kubectl get secret`.
   Key Vault + CSI driver is the production-grade approach: secrets never land in etcd, and access
@@ -39,7 +40,7 @@ az keyvault create \
 az keyvault secret set \
   --vault-name $KV_NAME \
   --name "db-connection-string" \
-  --value "Server=<DB_HOST>;Database=fabtech;User Id=fabadmin;Password=<DB_PASS>;"
+  --value "postgresql://fabadmin:<DB_PASS>@<DB_HOST>:5432/fabtech?sslmode=require"
 
 echo "Key Vault: $KV_NAME"
 ```
@@ -93,14 +94,15 @@ az identity federated-credential create \
 ### Part 3: Secrets Store CSI Driver
 
 ```bash
-helm repo add csi-secrets-store-provider-azure \
-  https://azure.github.io/secrets-store-csi-driver-provider-azure/charts
-helm repo update
+# Enable Azure Key Vault Secrets Provider add-on (managed by AKS)
+az aks addon enable \
+  --resource-group $RG \
+  --name $CLUSTER_NAME \
+  --addon azure-keyvault-secrets-provider
 
-helm install csi-secrets-store \
-  csi-secrets-store-provider-azure/csi-secrets-store-provider-azure \
-  --namespace kube-system \
-  --set secrets-store-csi-driver.syncSecret.enabled=true
+# Verify the add-on pods are running
+kubectl get pods -n kube-system -l app=secrets-store-csi-driver
+kubectl get pods -n kube-system -l app=csi-secrets-store-provider-azure
 ```
 
 `SecretProviderClass` manifest:
@@ -176,7 +178,7 @@ in the pod spec itself):
           mountPath: /mnt/secrets
           readOnly: true
         env:
-        - name: DB_CONNECTION_STRING
+        - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
               name: fabtech-db-secret

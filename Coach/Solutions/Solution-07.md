@@ -46,8 +46,8 @@ REPO_URL=https://github.com/<your-org>/frontier-aks-fleet
 
 # Set credentials without exposing them in shell history
 # Use `read -rs` to prompt for the value silently, then pass via variable
-read -rs GITHUB_USERNAME && echo "Username set"
-read -rs GITHUB_PAT && echo "PAT set"
+read -p "GitHub Username: " GITHUB_USERNAME && echo "Username set"
+read -sp "GitHub PAT: " GITHUB_PAT && echo && echo "PAT set"
 
 # Create a Kubernetes secret from the environment variables
 kubectl create namespace cluster-config
@@ -91,7 +91,7 @@ spec:
   interval: 5m
   chart:
     spec:
-      chart: ./charts/fabtech
+      chart: ./charts/chart
       sourceRef:
         kind: GitRepository
         name: cluster-config
@@ -155,7 +155,7 @@ kubectl rollout status deployment/fabtech-api -n fabtech
 
 ```yaml
 # clusters/staging/kustomization.yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
+apiVersion: kustomize.config.k8s.io/v1
 kind: Kustomization
 resources:
   - ../production

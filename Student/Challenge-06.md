@@ -21,9 +21,13 @@ understanding when and why to use it.
   - Demonstrate **scale-to-zero** (0 replicas when the queue is empty) and scale-up when
     messages are queued.
   - **NOTE:** Use KEDA's Workload Identity authentication — no connection strings in Kubernetes.
-- Enable **Node Auto Provisioning (Karpenter)** on your cluster so nodes are provisioned
+- Use **Node Auto Provisioning (Karpenter)** on your cluster so nodes are provisioned
   just-in-time when pods are pending.
   - **Hint:** This may already be enabled if you used AKS Automatic in Challenge 02.
+  - **Important:** For AKS Standard, NAP/Karpenter only works if the cluster was created in
+    Challenge 02 with `--node-provisioning-mode Auto`, `--network-dataplane cilium`, and
+    `--network-plugin-mode overlay`. These prerequisites cannot be added later.
+  - Verify with: `az aks show --query agentPoolProfiles[].nodeProvisioningMode`
 - *(Optional)* Deploy a **Vertical Pod Autoscaler (VPA)** in recommendation mode and
   review the suggested CPU/memory requests for the API deployment.
 

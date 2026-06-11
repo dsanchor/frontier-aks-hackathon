@@ -6,8 +6,7 @@ the hack challenges.
 ## How to Get These Resources
 
 The source code lives directly in this repository under the `src/` folder.
-Coaches can still package this folder into a **`Resources.zip`** file for distribution
-if preferred, but participants can also clone the repo and work from `Student/Resources/src/`.
+Participants can clone the repo and work directly from `Student/Resources/src/`.
 
 ## Contents
 
@@ -15,6 +14,8 @@ if preferred, but participants can also clone the repo and work from `Student/Re
 |---------------|---------|-------------|
 | `src/content-web/` | Challenge 01 | React frontend source code and Dockerfile |
 | `src/content-api/` | Challenge 01 | Node.js REST API source code and Dockerfile |
+| `src/manifests/chart/` | Challenge 03 | Helm chart skeleton — deploys app pods and services only |
+| `src/manifests/secretproviderclass.yaml` | Challenge 04 | Starter template for the Key Vault CSI `SecretProviderClass` |
 
 ## Pre-built Images (Fallback)
 
@@ -34,5 +35,5 @@ az acr import --name <ACR_NAME> --source docker.io/whatthehackmsft/web:latest --
 | Tier | Description |
 |------|-------------|
 | **Frontend** (`web`) | React-based conference info site |
-| **API** (`api`) | Node.js REST API backed by a database |
-| **Database** | Azure SQL / PostgreSQL (managed PaaS) |
+| **API** (`api`) | Node.js REST API (serves JSON data; connects to PostgreSQL if `DATABASE_URL` is set) |
+| **Database** | Azure Database for PostgreSQL — optional (API falls back to bundled JSON without it) |

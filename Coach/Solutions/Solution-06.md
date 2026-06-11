@@ -12,7 +12,9 @@
 - VPA in `Off` mode is safe for demos and shows useful recommendations. `Auto` mode causes
   pod restarts and is risky during a hackathon.
 - **Karpenter / NAP** may be preview in some regions. AKS Automatic includes it by default.
-  For Standard clusters, enable with `--node-provisioning-mode Auto`.
+  For Standard clusters, the cluster must be created in Challenge 02 with
+  `--node-provisioning-mode Auto`, `--network-dataplane cilium`, and
+  `--network-plugin-mode overlay`. These prerequisites cannot be added later.
 
 ### Common Issues
 
@@ -21,8 +23,9 @@
   **requests** (not just limits) are set on the target containers.
 - **KEDA scale-to-zero not working:** Ensure `minReplicaCount: 0` is set in the ScaledObject.
   KEDA defaults to 1 if not specified.
-- **Service Bus TriggerAuthentication:** Teams often skip the federated credential step for
-  the KEDA service account. Without it, KEDA cannot poll the queue.
+- **Service Bus TriggerAuthentication:** Use a ServiceAccount in the **app namespace**
+  (for example `fabtech`) for the federated credential and `TriggerAuthentication`.
+  Federating `kube-system:keda-operator` is fragile because the AKS add-on manages it.
 
 ## Solution
 
@@ -89,6 +92,8 @@ az servicebus queue create \
 
 ```bash
 MI_NAME=mi-keda-servicebus
+NAMESPACE=fabtech
+KEDA_SA_NAME=fabtech-keda-sa
 MI=$(az identity create --resource-group $RG --name $MI_NAME)
 MI_CLIENT_ID=$(echo $MI | jq -r '.clientId')
 MI_OBJECT_ID=$(echo $MI | jq -r '.principalId')
@@ -100,7 +105,16 @@ az role assignment create \
   --assignee-principal-type ServicePrincipal \
   --scope $SB_ID
 
-# Federated credential for KEDA service account
+# Dedicated app-namespace ServiceAccount for KEDA trigger auth
+kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+kubectl create serviceaccount $KEDA_SA_NAME \
+  --namespace $NAMESPACE \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl annotate serviceaccount $KEDA_SA_NAME \
+  --namespace $NAMESPACE \
+  "azure.workload.identity/client-id=$MI_CLIENT_ID" --overwrite
+
+# Federated credential for the app-namespace ServiceAccount used by KEDA
 OIDC_ISSUER=$(az aks show --resource-group $RG --name $CLUSTER_NAME \
   --query "oidcIssuerProfile.issuerUrl" -o tsv)
 
@@ -109,7 +123,7 @@ az identity federated-credential create \
   --identity-name $MI_NAME \
   --resource-group $RG \
   --issuer $OIDC_ISSUER \
-  --subject "system:serviceaccount:kube-system:keda-operator" \
+  --subject "system:serviceaccount:${NAMESPACE}:${KEDA_SA_NAME}" \
   --audience api://AzureADTokenExchange
 ```
 
@@ -119,19 +133,19 @@ KEDA `TriggerAuthentication` and `ScaledObject`:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: keda-operator
-  namespace: kube-system
+  name: fabtech-keda-sa
+  namespace: fabtech
   annotations:
     azure.workload.identity/client-id: "<MI_CLIENT_ID>"
 ---
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
-  name: keda-trigger-auth-servicebus
+  name: fabtech-sb-auth
   namespace: fabtech
 spec:
   podIdentity:
-    provider: azure-workload
+    provider: azure-workload-identity
     identityId: "<MI_CLIENT_ID>"
 ---
 apiVersion: keda.sh/v1alpha1
@@ -153,31 +167,78 @@ spec:
       namespace: <SB_NS>
       messageCount: "5"
     authenticationRef:
-      name: keda-trigger-auth-servicebus
+      name: fabtech-sb-auth
+```
+
+Apply the ServiceAccount, `TriggerAuthentication`, and `ScaledObject` in the `fabtech`
+namespace. The `TriggerAuthentication` should use the app-namespace identity above, not
+`kube-system:keda-operator`.
+
+Optional fallback if you must annotate the managed KEDA operator ServiceAccount instead:
+
+```bash
+kubectl annotate serviceaccount keda-operator \
+  --namespace kube-system \
+  "azure.workload.identity/client-id=$MI_CLIENT_ID" --overwrite
+
+# Restart so the workload identity webhook injects the env vars into the operator pods
+kubectl rollout restart deployment/keda-operator -n kube-system
 ```
 
 Send test messages to trigger scale-up:
 
 ```bash
-for i in {1..20}; do
-  az servicebus queue message send \
-    --resource-group $RG \
-    --namespace-name $SB_NS \
-    --queue-name fabtech-jobs \
-    --body "job-$i"
-done
+cat <<'PY' > send_test_messages.py
+import os
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
+
+connection_str = os.environ["SERVICE_BUS_CONNECTION_STRING"]
+queue_name = "fabtech-jobs"
+
+with ServiceBusClient.from_connection_string(connection_str) as client:
+    with client.get_queue_sender(queue_name) as sender:
+        for i in range(20):
+            sender.send_messages(ServiceBusMessage(f"job-{i}"))
+        print(f"Sent 20 messages to {queue_name}")
+PY
+
+pip install azure-servicebus
+SERVICE_BUS_CONNECTION_STRING=$(az servicebus namespace authorization-rule keys list \
+  --resource-group $RG \
+  --namespace-name $SB_NS \
+  --name RootManageSharedAccessKey \
+  --query primaryConnectionString -o tsv)
+python send_test_messages.py
 
 kubectl get pods -n fabtech -w
 ```
 
+Alternatively, use Service Bus Explorer in the Azure Portal → your namespace → Queue →
+Service Bus Explorer → Send messages.
+
 ### Part 3: Node Auto Provisioning (Karpenter)
 
 ```bash
-az aks update \
+az aks show \
   --resource-group $RG \
   --name $CLUSTER_NAME \
+  --query "agentPoolProfiles[].{name:name,nodeProvisioningMode:nodeProvisioningMode}" \
+  -o table
+```
+
+If you used **AKS Automatic** in Challenge 02, NAP is already available. For **AKS Standard**,
+NAP only works if the cluster was created in Challenge 02 with:
+
+```bash
+az aks create \
+  ... \
+  --network-plugin-mode overlay \
+  --network-dataplane cilium \
   --node-provisioning-mode Auto
 ```
+
+If the cluster was not created with those flags, do not use `az aks update` to try to add
+NAP later — recreate the cluster with the correct Challenge 02 configuration instead.
 
 `NodePool` manifest:
 

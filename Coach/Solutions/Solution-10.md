@@ -4,6 +4,8 @@
 
 ## Notes & Guidance
 
+- **Pedagogical intent:** This challenge intentionally uses an in-cluster PostgreSQL StatefulSet (not the managed Azure Database for PostgreSQL from Challenge 03). The goal is to observe PVC provisioning, Azure Disk CSI attachment, and data persistence through pod recreation first-hand. Remind teams that production workloads should use managed PaaS.
+
 - Key concept to drive home: **ReadWriteOnce (RWO)** for Azure Disk (one pod at a time,
   not shareable across nodes); **ReadWriteMany (RWX)** for Azure Files (multiple pods,
   multiple nodes).
@@ -66,6 +68,8 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop: ["ALL"]
+          # readOnlyRootFilesystem is intentionally omitted for database workloads
+          # PostgreSQL requires write access to its data directory and /tmp
         env:
         - name: POSTGRES_PASSWORD
           valueFrom:
