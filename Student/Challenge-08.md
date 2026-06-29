@@ -25,7 +25,7 @@ A secure AKS platform uses layered controls rather than a single feature. In thi
 
 ## Notes
 
-- NOTE: Azure Policy enforcement takes a few minutes to activate after assignment — this is expected.
+- NOTE: Azure Policy enforcement can take up to 15–20 minutes to activate after assignment while Gatekeeper syncs — this is expected.
 - NOTE: Namespace-scoped access should be demonstrably different from cluster-wide operator access.
 
 ## Optional Advanced

@@ -46,7 +46,7 @@ managed services.
 
 ## Learning Resources
 
-- [Azure Monitor managed service for Prometheus](https://learn.microsoft.com/azure/azure-monitor/essentials/prometheus-overview)
+- [Azure Monitor managed service for Prometheus](https://learn.microsoft.com/azure/azure-monitor/metrics/prometheus-metrics-overview)
 - [Azure Managed Grafana](https://learn.microsoft.com/azure/managed-grafana/overview)
 - [Enable Prometheus metrics collection in AKS](https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-monitoring-enable)
 - [Container Insights overview](https://learn.microsoft.com/azure/azure-monitor/containers/container-insights-overview)

@@ -14,9 +14,10 @@ Deploy an AKS cluster that meets the following requirements:
 
 - Uses **Azure CNI Overlay** networking — pods must have IPs from an overlay network, not from the VNet address space
 - Uses **Cilium** as the network dataplane
+- Has **Node Auto Provisioning** enabled — required for Challenge 06, depends on **Cilium** plus **Azure CNI Overlay**, and **cannot be enabled after cluster creation**
 - Has **Workload Identity** (OIDC issuer) enabled — required for Challenge 04
 - Nodes are spread across **all available Availability Zones** for the region
-- Uses **VMSS-based node pools** with **AzureLinux 3** as the node OS
+- Uses **VMSS-based node pools** with **AzureLinux** as the node OS
 - Is **attached to your ACR** from Challenge 01 so it can pull images without credentials
 - Has a **system node pool** with at least 3 nodes
 - Sets **`--auto-upgrade-channel stable`** and **`--node-os-upgrade-channel NodeImage`** for automated patching
@@ -40,7 +41,8 @@ Once the cluster is running:
 3. Workload Identity / OIDC issuer is enabled on the cluster.
 4. The cluster can pull images from your ACR without an explicit secret.
 5. Auto-upgrade channel is set to **stable** and node OS upgrade channel is set to **NodeImage**.
-6. Explain to your coach the difference between **AKS Standard** and **AKS Automatic**, and which one you chose and why.
+6. *(AKS Standard only)* `az aks show --query 'agentPoolProfiles[].nodeProvisioningMode'` returns `Auto`.
+7. Explain to your coach the difference between **AKS Standard** and **AKS Automatic**, and which one you chose and why.
 
 ## Learning Resources
 
@@ -48,6 +50,6 @@ Once the cluster is running:
 - [Azure CNI Overlay networking](https://learn.microsoft.com/azure/aks/azure-cni-overlay)
 - [AKS and availability zones](https://learn.microsoft.com/azure/aks/availability-zones)
 - [Workload Identity overview](https://learn.microsoft.com/azure/aks/workload-identity-overview)
-- [AKS Automatic overview](https://learn.microsoft.com/azure/aks/automatic/overview)
+- [AKS Automatic overview](https://learn.microsoft.com/azure/aks/intro-aks-automatic)
 - [Cilium dataplane on AKS](https://learn.microsoft.com/azure/aks/azure-cni-powered-by-cilium)
 - [Connect an ACR to an AKS cluster](https://learn.microsoft.com/azure/aks/cluster-container-registry-integration)

@@ -22,8 +22,9 @@ no static credentials in pods.
   `ServiceAccount` using the cluster's OIDC issuer URL.
   - **Hint:** This requires creating a *federated credential* on the managed identity, specifying
     the OIDC issuer URL from your AKS cluster and the Kubernetes service account subject.
-- Install the **Secrets Store CSI driver** and the Azure Key Vault provider, then configure
-  a `SecretProviderClass` resource that references your Key Vault and the secret.
+- Enable the **Azure Key Vault Secrets Provider managed add-on** on your AKS cluster — the
+  recommended approach that installs and manages the Secrets Store CSI driver automatically —
+  then configure a `SecretProviderClass` resource that references your Key Vault and the secret.
 - Update your API deployment to:
   - Use the annotated `ServiceAccount` (with `azure.workload.identity/client-id` annotation)
   - Mount the Key Vault secret as a volume via the CSI driver
@@ -52,4 +53,4 @@ no static credentials in pods.
 - [Use the Secrets Store CSI driver with AKS](https://learn.microsoft.com/azure/aks/csi-secrets-store-driver)
 - [Azure Key Vault RBAC guide](https://learn.microsoft.com/azure/key-vault/general/rbac-guide)
 - [Configure federated identity credentials](https://learn.microsoft.com/azure/active-directory/workload-identities/workload-identity-federation-create-trust)
-- [Secrets Store CSI driver overview](https://learn.microsoft.com/azure/aks/csi-secrets-store-overview)
+- [Secrets Store CSI driver overview](https://learn.microsoft.com/azure/aks/csi-secrets-store-driver)

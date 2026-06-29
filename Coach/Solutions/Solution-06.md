@@ -243,7 +243,7 @@ NAP later — recreate the cluster with the correct Challenge 02 configuration i
 `NodePool` manifest:
 
 ```yaml
-apiVersion: karpenter.azure.com/v1alpha2
+apiVersion: karpenter.azure.com/v1beta1
 kind: AKSNodeClass
 metadata:
   name: default
@@ -266,14 +266,6 @@ spec:
         - key: "karpenter.azure.com/sku-family"
           operator: In
           values: ["D", "E"]
-      # Resource requests/limits on pods are required for Karpenter to right-size nodes
-      resources:
-        requests:
-          cpu: "250m"
-          memory: "256Mi"
-        limits:
-          cpu: "4"
-          memory: "8Gi"
   limits:
     cpu: "100"
     memory: 400Gi

@@ -11,7 +11,7 @@
   create the `AcrPull` role assignment manually after cluster creation.
 - OIDC issuer is critical for Challenge 04 (Workload Identity). Verify it is enabled
   before teams move on.
-- Azure Linux 3.0 (`AzureLinux`) is the recommended OS SKU.
+- Azure Linux (`AzureLinux`) is the recommended OS SKU.
 
 ### Common Issues
 
@@ -53,9 +53,6 @@ az aks create \
   --attach-acr $ACR_NAME \
   --auto-upgrade-channel stable \
   --node-os-upgrade-channel NodeImage \
-  --enable-cluster-autoscaler \
-  --min-count 2 \
-  --max-count 6 \
   --generate-ssh-keys
 
 # Add a user node pool for application workloads

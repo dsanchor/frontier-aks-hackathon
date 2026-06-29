@@ -95,10 +95,10 @@ az identity federated-credential create \
 
 ```bash
 # Enable Azure Key Vault Secrets Provider add-on (managed by AKS)
-az aks addon enable \
+az aks enable-addons \
   --resource-group $RG \
   --name $CLUSTER_NAME \
-  --addon azure-keyvault-secrets-provider
+  --addons azure-keyvault-secrets-provider
 
 # Verify the add-on pods are running
 kubectl get pods -n kube-system -l app=secrets-store-csi-driver

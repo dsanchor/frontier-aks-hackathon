@@ -86,12 +86,10 @@ kubectl get gatewayclass
 
 ACR_LOGIN_SERVER=$(az acr show --name $ACR_NAME --query loginServer -o tsv)
 
-# Optional: include the next flag only when using PostgreSQL; it maps to DATABASE_URL
 helm upgrade --install fabtech ./chart \
   --namespace $NAMESPACE \
   --create-namespace \
   --set api.image.repository=$ACR_LOGIN_SERVER/fabtech-api \
-  --set api.env.databaseUrl="<DATABASE_URL>" \
   --set web.image.repository=$ACR_LOGIN_SERVER/fabtech-web
 
 kubectl get pods,svc -n $NAMESPACE

@@ -45,10 +45,9 @@ GitOps turns your Git repository into the source of truth for cluster state. In 
 
 ## Learning Resources
 
-- [GitOps with Flux v2 on AKS](https://learn.microsoft.com/azure/aks/use-gitops)
-- [Tutorial: Deploy applications using GitOps with Flux v2 on AKS](https://learn.microsoft.com/azure/aks/tutorial-gitops-flux2-ci-cd)
-- [Flux v2 concepts on AKS](https://learn.microsoft.com/azure/aks/concepts-gitops-flux2)
-- [Flux v2 supported parameters for AKS](https://learn.microsoft.com/azure/aks/use-gitops-flux2-parameters)
-- [Monitor GitOps (Flux v2) on AKS](https://learn.microsoft.com/azure/aks/monitor-gitops-flux2)
+- [GitOps with Flux v2 on AKS](https://learn.microsoft.com/azure/azure-arc/kubernetes/conceptual-gitops-flux2)
+- [Tutorial: Deploy applications using GitOps with Flux v2 on AKS](https://learn.microsoft.com/azure/azure-arc/kubernetes/tutorial-use-gitops-flux2)
+- [Flux v2 concepts on AKS](https://learn.microsoft.com/azure/azure-arc/kubernetes/conceptual-gitops-flux2)
+- [Flux v2 supported parameters for AKS](https://learn.microsoft.com/azure/azure-arc/kubernetes/gitops-flux2-parameters)
+- [Monitor GitOps (Flux v2) on AKS](https://learn.microsoft.com/azure/azure-arc/kubernetes/monitor-gitops-flux2-status)
 - [Flux v2 documentation](https://fluxcd.io/flux/)
-

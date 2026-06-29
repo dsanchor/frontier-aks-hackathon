@@ -11,7 +11,8 @@ modern Gateway API-based traffic routing approaches AKS supports today:
 
 ## Description
 
-- Enable the **App Routing add-on** on your cluster.
+- Enable the **App Routing add-on** on your cluster if the
+  `webapprouting.kubernetes.azure.com` `GatewayClass` is not already available.
 - Deploy a **database** for the FabTechOps application. You may use Azure Database for
   PostgreSQL Flexible Server (recommended) or an in-cluster PostgreSQL deployment for development.
 - Package the FabTechOps **API** and **Web** components as a **Helm chart** and deploy them
@@ -21,8 +22,8 @@ modern Gateway API-based traffic routing approaches AKS supports today:
 - Expose the application using **one of the following approaches** (or both for extra credit):
 
   **Option A — Gateway API via App Routing add-on**
-  - Enable App Routing with `az aks approuting enable` if `kubectl get gatewayclass` does not
-    already show `webapprouting.kubernetes.azure.com` (AKS Automatic may already have it).
+  - Enable the App Routing add-on on your cluster if `kubectl get gatewayclass` does not already
+    show `webapprouting.kubernetes.azure.com` (AKS Automatic may already have it).
   - Verify the `webapprouting.kubernetes.azure.com` `GatewayClass` exists before applying the
     `Gateway` resource.
   - Create a `Gateway` resource and an `HTTPRoute` that forwards traffic to the web service.

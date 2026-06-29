@@ -4,9 +4,10 @@
 
 ## Notes & Guidance
 
-- **Azure Policy enforcement delay:** After assigning a policy, allow 5–10 minutes before
-  enforcement begins. Teams testing immediately may not see the block yet.
-- `az aks addon enable --addon azure-policy` installs OPA Gatekeeper into
+- **Azure Policy enforcement delay:** After assigning a policy, allow up to 15–20 minutes
+  before enforcement begins while Gatekeeper syncs. Teams testing immediately may not see
+  the block yet.
+- `az aks enable-addons --addons azure-policy` installs OPA Gatekeeper into
   `gatekeeper-system`. Pods should appear within 2–3 minutes.
 - For the network policy demo, Cilium policies allow L7 HTTP filtering — this is a powerful
   differentiator from standard Kubernetes NetworkPolicy.
@@ -117,10 +118,10 @@ kubectl auth can-i get pods -n fabtech --as-group="<DEVELOPER_GROUP_ID>"
 ### Part 2: Azure Policy Add-on
 
 ```bash
-az aks addon enable \
+az aks enable-addons \
   --resource-group $RG \
   --name $CLUSTER_NAME \
-  --addon azure-policy
+  --addons azure-policy
 
 kubectl get pods -n kube-system | grep azure-policy
 kubectl get pods -n gatekeeper-system

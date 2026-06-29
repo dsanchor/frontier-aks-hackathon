@@ -31,14 +31,19 @@ understanding when and why to use it.
 - *(Optional)* Deploy a **Vertical Pod Autoscaler (VPA)** in recommendation mode and
   review the suggested CPU/memory requests for the API deployment.
 
-> **Note:** HPA and KEDA can coexist but must target the same deployment with care.
-> Read the docs to understand how they interact.
+> **Note:** HPA and a KEDA `ScaledObject` should not manage the same Deployment simultaneously in
+> this challenge. Use HPA first for CPU-based autoscaling, then remove the HPA and replace it with
+> a KEDA `ScaledObject` for the event-driven scale-to-zero scenario.
 
 ## Success Criteria
 
-1. HPA is active and scales up `fabtech-api` pods under load — show `kubectl get hpa` with increasing replica count.
-2. KEDA add-on is running in the cluster; a `ScaledObject` exists; pods scale to **0 replicas** when the queue is empty.
-3. Explain to your coach: when would you use **HPA**, **KEDA**, **VPA**, and **Karpenter**? What problem does each solve?
+1. **Part 1 — CPU-based autoscaling:** Configure an HPA for `fabtech-api` and show it scaling up
+   under load with `kubectl get hpa`.
+2. **Part 2 — Event-driven autoscaling:** Remove the HPA, enable the KEDA add-on, and replace it
+   with a `ScaledObject` for `fabtech-api` that scales to **0 replicas** when the queue is empty
+   and scales up when messages are queued.
+3. Explain to your coach: when would you use **HPA**, **KEDA**, **VPA**, and **Karpenter**? What
+   problem does each solve?
 
 ## Learning Resources
 

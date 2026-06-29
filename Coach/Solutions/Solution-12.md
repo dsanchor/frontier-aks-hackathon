@@ -159,8 +159,8 @@ az fleet updaterun create \
   --fleet-name $FLEET_NAME \
   --name upgrade-1-33 \
   --upgrade-type Full \
-  --kubernetes-version 1.33 \
-  --stages @stages.json
+  --stages @stages.json \
+  --kubernetes-version <TARGET_VERSION>   # e.g., $(az aks get-versions -l eastus --query 'orchestrators[-1].orchestratorVersion' -o tsv)
 
 # Show the run
 az fleet updaterun show \

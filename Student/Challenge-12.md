@@ -19,6 +19,7 @@ Operating many Kubernetes clusters one at a time does not scale well. In this ch
 ## Hints
 
 - Think of the hub as the control point and the member clusters as the execution targets.
+- **Hint:** The private AKS cluster you created in Challenge 11 (`aks-frontier-private`) can be used as the second member cluster for this exercise — you don't need to create a new cluster.
 - ClusterResourcePlacement is the core concept for workload propagation in this challenge.
 - Staged rollout is most useful when you separate canary and broader production groups.
 - Fleet adds value when you can prove consistent multi-cluster behavior rather than one-off manual changes.
@@ -48,4 +49,3 @@ Operating many Kubernetes clusters one at a time does not scale well. In this ch
 - [Azure Kubernetes Fleet Manager overview](https://learn.microsoft.com/azure/kubernetes-fleet/overview)
 - [Update orchestration with Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/update-orchestration)
 - [Resource propagation with Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/concepts-resource-propagation)
-- [Resource propagation in Fleet Manager — concepts](https://learn.microsoft.com/azure/kubernetes-fleet/concepts-resource-propagation)

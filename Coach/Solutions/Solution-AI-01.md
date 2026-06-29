@@ -18,7 +18,8 @@
 ### Common Issues
 
 - **GPU node pool takes 10–15 minutes to provision.**
-- **NVIDIA device plugin not starting:** Check `kubectl describe pod` in `gpu-resources` namespace.
+- **NVIDIA device plugin not starting:** Check the `nvidia-device-plugin` pods in the
+  `kube-system` namespace with `kubectl get pods -n kube-system -l name=nvidia-device-plugin-ds`.
   Usually a quota or node sizing issue.
 - **CUDA test job fails:** Confirm the pod is scheduled on the GPU node:
   `kubectl get pod -o wide` and verify the node name.
@@ -55,7 +56,7 @@ kubectl get nodes -l sku=gpu
 
 ```bash
 # AKS installs the device plugin automatically — verify
-kubectl get pods -n gpu-resources
+kubectl get pods -n kube-system -l name=nvidia-device-plugin-ds
 kubectl describe node <GPU_NODE_NAME> | grep -A5 "Allocatable"
 # Should show: nvidia.com/gpu: 1
 ```
@@ -81,7 +82,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: cuda-vector-add
-        image: "mcr.microsoft.com/oss/nvidia/samples/vectoradd:1.0"
+        image: "nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda12.5.0"
         securityContext:
           runAsNonRoot: true
           allowPrivilegeEscalation: false
@@ -155,7 +156,7 @@ spec:
           requests:
             memory: "8Gi"
         ports:
-        - containerPort: 3000
+        - containerPort: 80
       volumes:
       - name: model-cache
         emptyDir: {}
@@ -171,8 +172,8 @@ spec:
   selector:
     app: hf-inference
   ports:
-  - port: 3000
-    targetPort: 3000
+  - port: 80
+    targetPort: 80
 ```
 
 ```bash
@@ -189,7 +190,7 @@ unset HF_TOKEN
 kubectl apply -f hf-inference-deployment.yaml
 
 # Test inference
-kubectl port-forward svc/hf-inference 8080:3000 -n fabtech &
+kubectl port-forward svc/hf-inference 8080:80 -n fabtech &
 curl http://localhost:8080/generate \
   -H "Content-Type: application/json" \
   --data '{"inputs": "What is Kubernetes?", "parameters": {"max_new_tokens": 50}}'

@@ -12,8 +12,8 @@
   structured fields (`Namespace`, `PodName`, `LogLevel`).
 - `az monitor account create` is a relatively new command — requires az CLI >= 2.50. If it
   fails, update with `az upgrade`.
-- The canonical modern command for Container Insights is
-  `az aks addon enable --addon monitoring`. It still covers log collection, but **NOT** metrics
+- The GA command for Container Insights is
+  `az aks enable-addons --addons monitoring`. It still covers log collection, but **NOT** metrics
   — for metrics, use Managed Prometheus.
 
 ### Common Issues
@@ -98,10 +98,10 @@ LOG_ANALYTICS_WORKSPACE_ID=$(az monitor log-analytics workspace show \
   --workspace-name $LOG_WS_NAME \
   --query id -o tsv)
 
-az aks addon enable \
+az aks enable-addons \
   --resource-group $RG \
   --name $CLUSTER_NAME \
-  --addon monitoring \
+  --addons monitoring \
   --workspace-resource-id $LOG_ANALYTICS_WORKSPACE_ID
 ```
 
@@ -163,17 +163,28 @@ ACTION_GROUP_ID=$(az monitor action-group show \
   --name $ACTION_GROUP_NAME \
   --query id -o tsv)
 
-# Create a Prometheus alert rule targeting the Azure Monitor workspace
-az monitor alert-processing-rule create \
-  --resource-group $RG \
-  --name alert-high-restart-rate \
-  --rule-type AddActionGroups \
-  --action-groups $ACTION_GROUP_ID \
-  --scopes $MONITOR_WS_ID
-
-# Alert rule YAML (for reference — applied via az monitor metrics alert create
-# or Bicep for production use)
+# Do NOT use `az monitor alert-processing-rule create` here:
+# alert processing rules only route/suppress alerts that already fired, and their
+# scopes are subscription/resource-group level scopes, not an Azure Monitor workspace.
+#
+# Correct options for defining the actual Prometheus alert condition:
+# 1) Use the `PrometheusRuleGroup` ARM resource shown just below in this section.
+# 2) Or create the same ARM resource from the CLI with
+#    `az monitor alert-prometheus-rule-group create`
+#    (in some CLI versions/extensions this is `az alerts-management prometheus-rule-group create`).
+#
+# Reference only: the YAML below represents an ARM resource type, so deploy it via
+# ARM/Bicep or the Prometheus rule group CLI command above — not with `kubectl apply`.
 # Condition: container_restart_rate > 5 in last 5 min triggers the action group
+#
+# Equivalent CLI shape:
+# az monitor alert-prometheus-rule-group create \
+#   --resource-group $RG \
+#   --name aks-pod-restart-alerts \
+#   --location $LOCATION \
+#   --cluster-name $CLUSTER_NAME \
+#   --scopes $MONITOR_WS_ID \
+#   --rules '<json-rules-payload>'
 cat <<EOF
 apiVersion: azuremonitor.microsoft.com/v1
 kind: PrometheusRuleGroup

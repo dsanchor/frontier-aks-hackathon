@@ -17,7 +17,7 @@
 ### Common Issues
 
 - **Sidecars not injecting:** Verify the namespace label:
-  `kubectl get namespace fabtech --show-labels | grep istio-injection`
+  `kubectl get namespace fabtech --show-labels | grep istio.io/rev`
   Then restart pods: `kubectl rollout restart deployment -n fabtech`
 - **mTLS blocking traffic from the Gateway:** The App Routing Gateway is not
   part of the mesh by default. Create an exception in the `PeerAuthentication` or configure
@@ -108,6 +108,8 @@ spec:
   - port: 3001
     targetPort: 3001
 ```
+
+> **Coach Note:** The `version: v1` label added to the Service selector is outside the Helm chart. A subsequent `helm upgrade` will revert this change. During the canary exercise, either update the Helm chart values to include this selector, or temporarily suspend Flux/Helm reconciliation for the Service.
 
 Then deploy a v2 of the API (the existing v1 pods should keep `app: fabtech-api`
 and `version: v1` labels):

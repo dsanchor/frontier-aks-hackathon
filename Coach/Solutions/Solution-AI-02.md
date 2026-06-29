@@ -46,6 +46,9 @@ az aks update \
   --name $CLUSTER_NAME \
   --enable-ai-toolchain-operator
 
+# Create the workspace namespace used by KAITO workspaces
+kubectl create namespace kaito-workspace --dry-run=client -o yaml | kubectl apply -f -
+
 # Verify KAITO pods
 kubectl get pods -n kube-system | grep kaito
 ```
@@ -53,10 +56,10 @@ kubectl get pods -n kube-system | grep kaito
 ### Alternative: Install KAITO via Helm (if add-on not available)
 
 ```bash
-helm repo add kaito https://azure.github.io/kaito/
+helm repo add kaito https://kaito-project.github.io/kaito/
 helm repo update
 
-helm install kaito kaito/kaito-workspace \
+helm install kaito kaito/workspace \
   --namespace kaito-workspace \
   --create-namespace
 ```
@@ -128,13 +131,13 @@ kubectl patch workspace workspace-phi3-mini -n kaito-workspace \
 
 kubectl get workspace workspace-phi3-mini -n kaito-workspace
 
-# Scale GPU node pool to 0 after challenge
-az aks nodepool scale \
-  --resource-group $RG \
-  --cluster-name $CLUSTER_NAME \
-  --name gpupool \
-  --node-count 0
+# Delete the KAITO workspace to release GPU nodes provisioned by KAITO's gpu-provisioner
+kubectl delete workspace workspace-phi3-mini -n kaito-workspace
 ```
+
+KAITO provisions GPU nodes through its own `gpu-provisioner`, separate from any manually
+created AKS node pool such as `gpupool`. Clean up the `Workspace` resource to trigger
+release of those KAITO-managed nodes.
 
 ### Part 5 (Optional): KAITO with Workload Identity
 

@@ -80,6 +80,13 @@ flux get kustomizations
 
 ### Part 3: Commit App Config to Git
 
+```bash
+cd frontier-aks-fleet
+mkdir -p charts
+helm create charts/chart
+# Commit the scaffolded chart (or replace it with your app chart) before applying the HelmRelease.
+```
+
 ```yaml
 # clusters/production/fabtech-helmrelease.yaml
 apiVersion: helm.toolkit.fluxcd.io/v2
@@ -155,7 +162,7 @@ kubectl rollout status deployment/fabtech-api -n fabtech
 
 ```yaml
 # clusters/staging/kustomization.yaml
-apiVersion: kustomize.config.k8s.io/v1
+apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../production

@@ -1,6 +1,6 @@
 # Challenge AI-01 — AI on AKS: GPU Foundations
 
-**[Home](../README.md)** — [Next Challenge >](./Challenge-AI-02.md)
+[< Previous Challenge](./Challenge-13.md) — **[Home](../README.md)** — [Next Challenge >](./Challenge-AI-02.md)
 
 ## Introduction
 
@@ -46,7 +46,7 @@ GPU-enabled AKS clusters let you run AI inference and other accelerated workload
 ## Learning Resources
 
 - [Use GPU-enabled node pools in AKS](https://learn.microsoft.com/azure/aks/gpu-cluster)
-- [Node feature discovery in AKS](https://learn.microsoft.com/azure/aks/node-feature-discovery)
+- [Node feature discovery in AKS](https://learn.microsoft.com/azure/aks/gpu-cluster)
 - [Cluster autoscaler in AKS](https://learn.microsoft.com/azure/aks/cluster-autoscaler)
 - [Request Azure VM quota increases](https://learn.microsoft.com/azure/quotas/per-vm-quota-requests)
 - [Use the AI toolchain operator add-on in AKS](https://learn.microsoft.com/azure/aks/ai-toolchain-operator)

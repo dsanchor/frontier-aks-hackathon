@@ -22,7 +22,7 @@
 - **Pod stuck in Pending due to PVC not bound:** Check `kubectl describe pvc`. Common causes:
   wrong storage class name, zone mismatch between PVC and node.
 - **Azure Files RWX mount failing:** Ensure the `azurefile-csi` or `azurefile-csi-premium`
-  storage class is used. The NFS-based `azurefile-csi-premium` requires Premium SKU.
+  storage class is used.
 - **Data lost after pod deletion:** Usually means the pod was using `emptyDir` instead of a
   PVC, or the PVC was deleted along with the pod (StatefulSet `--cascade=orphan` avoids this).
 
@@ -36,7 +36,7 @@ kubectl get storageclass
 # managed-csi              → Standard SSD Azure Disk (RWO)
 # managed-csi-premium      → Premium SSD Azure Disk (RWO)
 # azurefile-csi            → Standard Azure Files (RWX)
-# azurefile-csi-premium    → Premium Azure Files NFS (RWX)
+# azurefile-csi-premium    → Premium Azure Files SMB (RWX)
 ```
 
 ### Part 1: PostgreSQL StatefulSet with Azure Disk (RWO)

@@ -71,5 +71,11 @@ az role assignment list --assignee $(az account show --query user.name -o tsv) \
 az vm list-usage --location eastus \
   --query "[?contains(name.value,'NC')]" \
   -o table
-# Request increase for StandardNCAsv3Family if quota = 0
+# If quota = 0, request an increase for the exact GPU family shown in the Portal/CLI.
 ```
+
+> **Quota naming note:** Portal display names and programmatic quota family names do not
+> always match exactly. For example, the Portal may show **Standard NCASv3_T4 Family**
+> while CLI/API workflows use `StandardNCAsv3_T4Family`. Other GPU SKUs may use a different
+> family, such as `Standard_NC_A100_v4_Family`. Verify the exact family in the Azure Portal
+> before filing quota tickets.
