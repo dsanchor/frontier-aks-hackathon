@@ -235,7 +235,7 @@ spec:
 ### Helm Upgrade & Rollback
 
 ```bash
-helm upgrade fabtech ./chart \
+helm upgrade fabtech $CHART_PATH \
   --namespace $NAMESPACE \
   --set api.replicaCount=4
 

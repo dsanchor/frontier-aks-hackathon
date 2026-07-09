@@ -23,9 +23,9 @@
   **requests** (not just limits) are set on the target containers.
 - **KEDA scale-to-zero not working:** Ensure `minReplicaCount: 0` is set in the ScaledObject.
   KEDA defaults to 1 if not specified.
-- **Service Bus TriggerAuthentication:** Use a ServiceAccount in the **app namespace**
-  (for example `fabtech`) for the federated credential and `TriggerAuthentication`.
-  Federating `kube-system:keda-operator` is fragile because the AKS add-on manages it.
+- **Service Bus TriggerAuthentication:** Use the `kube-system:keda-operator` ServiceAccount
+  for the federated credential. The KEDA operator pod is the actual token requestor, not the
+  application pods. Set `provider: azure-workload` in the `TriggerAuthentication`.
 
 ## Solution
 
@@ -247,6 +247,7 @@ metadata:
   name: general
 spec:
   imageFamily: AzureLinux
+---
 apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:

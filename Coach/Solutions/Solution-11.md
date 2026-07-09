@@ -94,6 +94,7 @@ az aks create \
   --network-plugin-mode overlay \
   --network-dataplane cilium \
   --vnet-subnet-id $SUBNET_ID \
+  --outbound-type userAssignedNATGateway \
   --service-cidr 192.168.0.0/16 \
   --dns-service-ip 192.168.0.10 \
   --enable-oidc-issuer \
@@ -260,7 +261,7 @@ metadata:
   annotations:
     service.beta.kubernetes.io/azure-load-balancer-internal: "true"
 spec:
-  gatewayClassName: webapprouting.kubernetes.azure.com
+  gatewayClassName: approuting-istio
   listeners:
     - name: http
       port: 80

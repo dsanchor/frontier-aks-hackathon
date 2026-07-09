@@ -43,7 +43,7 @@ The source code and manifests used in later challenges are available in the
 
 ## Pre-flight Validation Checklist
 
-Use this checklist before starting Challenge 01 to avoid surprises mid-hackathon:
+1. Use this checklist before starting Challenge 01 to avoid surprises mid-hackathon:
 
 ```bash
 # 1. Azure CLI version >= 2.65
@@ -82,12 +82,12 @@ Look for `Registered`. To register any that show `NotRegistered`:
 az provider register --namespace <NAMESPACE>
 ```
    
-2. Confirm you have at least 16 available Standard D-series vCPU quota in your target Azure
+3. Confirm you have at least 16 available Standard D-series vCPU quota in your target Azure
    region.
 
 ```bash
-az vm list-usage --location <REGION> --query "[?contains(localName, 'Standard DSv') \
-  || contains(localName, 'Standard Dv')].{Name:localName, Used:currentValue, Limit:limit}" --output table
+az vm list-usage --location <REGION> --query "[?contains(name.value, 'Standard DSv') \
+  || contains(name.value, 'Standard Dv')].{Name:name.value, Used:currentValue, Limit:limit}" --output table
 ```
 
 

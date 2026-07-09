@@ -11,8 +11,8 @@ modern Gateway API-based traffic routing approaches AKS supports today:
 
 ## Description
 
-- Enable the **App Routing add-on** on your cluster if the
-  `webapprouting.kubernetes.azure.com` `GatewayClass` is not already available.
+- Enable the **App Routing add-on** on your cluster (with `--enable-app-routing-istio`) if the
+  `approuting-istio` `GatewayClass` is not already available.
 - Deploy an **in-cluster PostgreSQL database** for the FabTechOps application using the
   [Bitnami PostgreSQL Helm chart](https://artifacthub.io/packages/helm/bitnami/postgresql).
   Deploy it into the same `fabtech` namespace as the application.
@@ -23,9 +23,9 @@ modern Gateway API-based traffic routing approaches AKS supports today:
 - Expose the application using **one of the following approaches** (or both for extra credit):
 
   **Option A — Gateway API via App Routing add-on**
-  - Enable the App Routing add-on on your cluster if `kubectl get gatewayclass` does not already
-    show `webapprouting.kubernetes.azure.com` (AKS Automatic may already have it).
-  - Verify the `webapprouting.kubernetes.azure.com` `GatewayClass` exists before applying the
+  - Enable the App Routing add-on on your cluster (with `--enable-app-routing-istio`) if
+    `kubectl get gatewayclass` does not already show `approuting-istio` (AKS Automatic may already have it).
+  - Verify the `approuting-istio` `GatewayClass` exists before applying the
     `Gateway` resource.
   - Create a `Gateway` resource and an `HTTPRoute` that forwards traffic to the web service.
   - **Hint:** The App Routing add-on supports `gateway.networking.k8s.io/v1` natively — no manual CRD install needed.
@@ -44,13 +44,13 @@ modern Gateway API-based traffic routing approaches AKS supports today:
 
 1. An in-cluster **PostgreSQL** pod is running and ready in the `fabtech` namespace. Note the connection string — it will be used in Challenge 04.
 2. Both `fabtech-api` and `fabtech-web` deployments have at least 2 pods running.
-2. The application is accessible from a browser via the Gateway frontend.
-3. For Option A: A `Gateway` and `HTTPRoute` resource are present and the route status shows `Accepted`.
-4. For Option B: An `ApplicationLoadBalancer` resource exists and the AGC frontend resolves correctly.
-5. Show a successful `helm upgrade` and `helm rollback`.
-6. A `PodDisruptionBudget` exists for `fabtech-api` and `fabtech-web` with `minAvailable: 1`.
-7. Each Deployment uses `topologySpreadConstraints` to distribute pods across availability zones.
-8. The database connection string is available and will be stored in Key Vault in Challenge 04.
+3. The application is accessible from a browser via the Gateway frontend.
+4. For Option A: A `Gateway` and `HTTPRoute` resource are present and the route status shows `Accepted`.
+5. For Option B: An `ApplicationLoadBalancer` resource exists and the AGC frontend resolves correctly.
+6. Show a successful `helm upgrade` and `helm rollback`.
+7. A `PodDisruptionBudget` exists for `fabtech-api` and `fabtech-web` with `minAvailable: 1`.
+8. Each Deployment uses `topologySpreadConstraints` to distribute pods across availability zones.
+9. The database connection string is available and will be stored in Key Vault in Challenge 04.
 
 ## Learning Resources
 
