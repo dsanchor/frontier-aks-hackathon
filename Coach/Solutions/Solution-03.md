@@ -136,7 +136,7 @@ kubectl get gateway -n fabtech          # wait for READY=True
 kubectl get httproute -n fabtech        # confirm status: Accepted
 ```
 
-### Part 3 — Option B: Gateway API via Application Gateway for Containers (AGC)
+### Part 2 — Option B: Gateway API via Application Gateway for Containers (AGC)
 
 ```bash
 # Install the ALB Controller via Helm with Workload Identity
