@@ -280,15 +280,3 @@ kubectl run -it --rm test-pod --image=busybox:1.36 --restart=Never -n fabtech --
   wget -qO- --timeout=5 http://fabtech-api:3001/api/health
 # Expected: connection refused or timeout (pod exits with error)
 ```
-
-### Part 4: Microsoft Defender for Containers (Optional)
-
-```bash
-az security pricing create \
-  --name Containers \
-  --tier Standard
-
-# Review recommendations
-az security assessment list \
-  --query "[?displayName.contains(@,'container')]" -o table
-```

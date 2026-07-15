@@ -28,12 +28,6 @@ A secure AKS platform uses layered controls rather than a single feature. In thi
 - NOTE: Azure Policy enforcement can take up to **20–30 minutes** to activate after assignment while Gatekeeper syncs.
 - NOTE: Namespace-scoped access should be demonstrably different from cluster-wide operator access.
 
-## Optional Advanced
-
-- Enable Microsoft Defender for Containers and review the protections it adds for images, runtime signals, and cluster posture.
-- Compare the security signals from Azure Policy and Defender to understand prevention versus detection.
-- Extend the network controls to include egress restrictions for application pods.
-
 ## Success Criteria
 
 1. A developer identity can view and troubleshoot resources in the FabTech namespace without broad cluster-wide access.
