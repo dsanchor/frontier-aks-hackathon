@@ -1,56 +1,51 @@
-# Challenge 11 — Enterprise Networking
+# Challenge 11 — AKS Fleet Manager
 
 [< Previous Challenge](./Challenge-10.md) — **[Home](../README.md)** — [Next Challenge >](./Challenge-12.md)
 
 ## Introduction
 
-Enterprise AKS environments often require private management access, controlled outbound connectivity, and private access to supporting platform services. In this challenge you will design and validate a more locked-down networking posture for a production-style cluster.
+Operating many Kubernetes clusters one at a time does not scale well. In this challenge you will use AKS Fleet Manager to coordinate workload placement and staged platform operations across multiple clusters.
 
 ## Description
 
-- Create or use an AKS cluster with a private API server endpoint so cluster management stays on the private network path.
-- Ensure your cluster design uses Virtual Machine Scale Sets for node pools.
-- Provide a controlled outbound path for cluster and workload egress through Azure Firewall or NAT Gateway.
-- Document the required outbound dependencies so the cluster can function without unrestricted internet access.
-- Enable private connectivity for Azure Container Registry so image pulls do not rely on the public internet.
-- Configure the App Routing add-on or the LoadBalancer Service created for the Gateway to use an internal load balancer rather than a public entry point.
-- Review how the application and platform traffic flows change when private endpoints and controlled egress are introduced.
+- Create an AKS Fleet Manager resource with a hub that can coordinate multi-cluster operations.
+- Join at least two AKS clusters to the fleet as member clusters.
+- Use the fleet hub to define a placement strategy for FabTech workloads across the member clusters.
+- Apply a ClusterResourcePlacement so selected resources are propagated to the member clusters.
+- Validate that propagated resources arrive where you expect and remain consistent across the selected clusters.
+- Define a staged rollout strategy so one member cluster is updated before the others.
+- Review how Fleet can coordinate Kubernetes version upgrades more safely than performing cluster upgrades independently.
 
 ## Hints
 
-- Private clusters affect both day-to-day administration and troubleshooting workflows.
-- Egress control is about choosing and governing the approved outbound path, not simply blocking everything.
-- Private DNS is an important part of making private endpoints work consistently.
-- Internal Gateway LB is often paired with private front-end patterns elsewhere in the architecture.
+- Think of the hub as the control point and the member clusters as the execution targets.
+- **Hint:** The private AKS cluster you created in Challenge 11 (`aks-frontier-private`) can be used as the second member cluster for this exercise — you don't need to create a new cluster.
+- ClusterResourcePlacement is the core concept for workload propagation in this challenge.
+- Staged rollout is most useful when you separate canary and broader production groups.
+- Fleet adds value when you can prove consistent multi-cluster behavior rather than one-off manual changes.
 
 ## Notes
 
-- NOTE: VM Availability Sets for AKS node pools are retired. Use VMSS-based node pools.
-- NOTE: Private AKS clusters require a management path from within the network boundary or an approved remote access pattern. Use `az aks command invoke` to run `kubectl` commands without a VPN or jumpbox.
-- NOTE: Private endpoints for registry access are especially valuable when image supply chain control is part of the security posture.
-- ⚠️ **WARNING:** Converting an **existing public AKS cluster to a private cluster is not supported in-place.** You must create a new cluster with `--enable-private-cluster` from the start. Plan your private cluster strategy before initial provisioning.
+- NOTE: Use two or more member clusters so the fleet scenarios are meaningful.
+- NOTE: Resource propagation and staged upgrades solve different problems and should both be demonstrated.
+- NOTE: The workload propagation outcome should be visible on the member clusters, not only on the hub.
 
 ## Optional Advanced
 
-- Use Cilium layer 7 policy to restrict API traffic by HTTP behavior rather than only by port and source.
-- Compare Azure Firewall and NAT Gateway as egress strategies for this design.
-- Extend the private endpoint model to additional services used by the platform, such as Key Vault.
+- Create separate update groups for canary and production members and describe the promotion logic between them.
+- Explore how fleet-wide governance can complement workload placement and upgrades.
+- Compare the fleet approach with managing each cluster independently through separate operational runbooks.
 
 ## Success Criteria
 
-1. The AKS control plane is private and is not exposed through a public API server endpoint.
-2. Cluster and workload egress follow an intentional path through Azure Firewall or NAT Gateway.
-3. Azure Container Registry is reachable through a private endpoint for image pulls.
-4. The application is exposed through an internal load balancer only. For Gateway API via App
-   Routing, configure the LoadBalancer Service created for the Gateway—or the App Routing add-on
-   configuration that manages it—to use
-   `service.beta.kubernetes.io/azure-load-balancer-internal: "true"`.
-5. You can explain to your coach how private access, controlled egress, and private registry connectivity improve the enterprise security posture.
+1. A fleet hub exists and at least two member AKS clusters are joined to it.
+2. A ClusterResourcePlacement propagates selected FabTech resources to member clusters.
+3. A staged rollout strategy is defined so one cluster can be updated ahead of the others.
+4. Fleet is prepared to coordinate Kubernetes version upgrades across the member clusters.
+5. You can explain to your coach how Fleet reduces operational risk and duplicated effort in multi-cluster environments.
 
 ## Learning Resources
 
-- [Create a private AKS cluster](https://learn.microsoft.com/azure/aks/private-clusters)
-- [Establish network connectivity to a private AKS cluster](https://learn.microsoft.com/azure/aks/private-cluster-connect)
-- [AKS outbound types and egress design](https://learn.microsoft.com/azure/aks/egress-outboundtype)
-- [Use Azure Container Registry with Private Link](https://learn.microsoft.com/azure/container-registry/container-registry-private-link)
-- [Azure Private Link overview](https://learn.microsoft.com/azure/private-link/private-link-overview)
+- [Azure Kubernetes Fleet Manager overview](https://learn.microsoft.com/azure/kubernetes-fleet/overview)
+- [Update orchestration with Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/update-orchestration)
+- [Resource propagation with Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/concepts-resource-propagation)

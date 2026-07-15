@@ -20,10 +20,10 @@ requirements, and a suggested agenda.
 | 06 | Autoscaling | [Solution-06.md](./Solutions/Solution-06.md) |
 | 07 | GitOps with Flux v2 | [Solution-07.md](./Solutions/Solution-07.md) |
 | 08 | AKS Security Hardening | [Solution-08.md](./Solutions/Solution-08.md) |
-| 09 | Service Mesh with AKS Istio | [Solution-09.md](./Solutions/Solution-09.md) |
-| 10 | Storage | [Solution-10.md](./Solutions/Solution-10.md) |
-| 11 | Enterprise Networking | [Solution-11.md](./Solutions/Solution-11.md) |
-| 12 | AKS Fleet Manager | [Solution-12.md](./Solutions/Solution-12.md) |
+| 09 | Storage | [Solution-09.md](./Solutions/Solution-09.md) |
+| 10 | Enterprise Networking | [Solution-10.md](./Solutions/Solution-10.md) |
+| 11 | AKS Fleet Manager | [Solution-11.md](./Solutions/Solution-11.md) |
+| 12 | Service Mesh with AKS Istio | [Solution-12.md](./Solutions/Solution-12.md) |
 | 13 | FinOps & Cost Management *(optional)* | [Solution-13.md](./Solutions/Solution-13.md) |
 | AI-01 | AI on AKS Foundations *(optional)* | [Solution-AI-01.md](./Solutions/Solution-AI-01.md) |
 | AI-02 | LLM Inference with KAITO *(optional)* | [Solution-AI-02.md](./Solutions/Solution-AI-02.md) |

@@ -1,51 +1,49 @@
-# Challenge 12 — AKS Fleet Manager
+# Challenge 12 — AKS Managed Istio Service Mesh
 
 [< Previous Challenge](./Challenge-11.md) — **[Home](../README.md)** — [Next Challenge (Optional) >](./Challenge-13.md)
 
 ## Introduction
 
-Operating many Kubernetes clusters one at a time does not scale well. In this challenge you will use AKS Fleet Manager to coordinate workload placement and staged platform operations across multiple clusters.
+A service mesh adds secure service-to-service communication, traffic control, and deep observability without changing application code. In this challenge you will use the AKS managed Istio add-on to bring the FabTech namespace into the mesh and apply production-style traffic and security controls.
 
 ## Description
 
-- Create an AKS Fleet Manager resource with a hub that can coordinate multi-cluster operations.
-- Join at least two AKS clusters to the fleet as member clusters.
-- Use the fleet hub to define a placement strategy for FabTech workloads across the member clusters.
-- Apply a ClusterResourcePlacement so selected resources are propagated to the member clusters.
-- Validate that propagated resources arrive where you expect and remain consistent across the selected clusters.
-- Define a staged rollout strategy so one member cluster is updated before the others.
-- Review how Fleet can coordinate Kubernetes version upgrades more safely than performing cluster upgrades independently.
+- Enable the AKS managed Istio add-on for your cluster.
+- Bring the FabTech namespace into the mesh so the application workloads run with Istio sidecars.
+- Enforce mutual TLS in strict mode so service-to-service traffic inside the mesh is encrypted and authenticated.
+- Define traffic management rules that support a canary release between version 1 and version 2 of the API.
+- Verify that traffic splitting behaves as expected and that you can reason about the rollout path.
+- Use mesh observability to inspect service traffic and health through Grafana or an equivalent service graph experience such as Kiali when available.
 
 ## Hints
 
-- Think of the hub as the control point and the member clusters as the execution targets.
-- **Hint:** The private AKS cluster you created in Challenge 11 (`aks-frontier-private`) can be used as the second member cluster for this exercise — you don't need to create a new cluster.
-- ClusterResourcePlacement is the core concept for workload propagation in this challenge.
-- Staged rollout is most useful when you separate canary and broader production groups.
-- Fleet adds value when you can prove consistent multi-cluster behavior rather than one-off manual changes.
+- Focus on the managed Istio add-on for AKS rather than a self-installed control plane.
+- Sidecar injection is a namespace onboarding task as much as a workload task.
+- PeerAuthentication, DestinationRule, and VirtualService are the key service mesh concepts for this challenge.
+- Observability should help you confirm both traffic direction and canary weighting.
 
 ## Notes
 
-- NOTE: Use two or more member clusters so the fleet scenarios are meaningful.
-- NOTE: Resource propagation and staged upgrades solve different problems and should both be demonstrated.
-- NOTE: The workload propagation outcome should be visible on the member clusters, not only on the hub.
+- NOTE: Strict mTLS should prevent plaintext communication from workloads that are outside the mesh.
+- NOTE: The managed AKS observability path centers on Prometheus and Grafana. Kiali may depend on how your environment is configured.
 
 ## Optional Advanced
 
-- Create separate update groups for canary and production members and describe the promotion logic between them.
-- Explore how fleet-wide governance can complement workload placement and upgrades.
-- Compare the fleet approach with managing each cluster independently through separate operational runbooks.
+- Extend the canary rollout into a full promotion plan from a small percentage to all traffic.
+- Compare the operational trade-offs between the AKS managed add-on and a fully self-managed Istio installation.
 
 ## Success Criteria
 
-1. A fleet hub exists and at least two member AKS clusters are joined to it.
-2. A ClusterResourcePlacement propagates selected FabTech resources to member clusters.
-3. A staged rollout strategy is defined so one cluster can be updated ahead of the others.
-4. Fleet is prepared to coordinate Kubernetes version upgrades across the member clusters.
-5. You can explain to your coach how Fleet reduces operational risk and duplicated effort in multi-cluster environments.
+1. FabTech workloads are running with Istio sidecars in the mesh-enabled namespace.
+2. Mutual TLS is enforced in strict mode for service-to-service communication.
+3. Traffic management rules send a controlled portion of requests to the canary API version.
+4. Mesh observability shows service traffic and helps verify the rollout behavior.
+5. You can explain to your coach why you chose the AKS managed Istio add-on and how it fits the production-ready posture of this cluster.
 
 ## Learning Resources
 
-- [Azure Kubernetes Fleet Manager overview](https://learn.microsoft.com/azure/kubernetes-fleet/overview)
-- [Update orchestration with Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/update-orchestration)
-- [Resource propagation with Fleet Manager](https://learn.microsoft.com/azure/kubernetes-fleet/concepts-resource-propagation)
+- [Istio-based service mesh add-on for Azure Kubernetes Service](https://learn.microsoft.com/azure/aks/istio-about)
+- [Deploy the Istio-based service mesh add-on for AKS](https://learn.microsoft.com/azure/aks/istio-deploy-addon)
+- [Configure the Istio-based service mesh add-on for AKS](https://learn.microsoft.com/azure/aks/istio-meshconfig)
+- [Collect metrics for Istio service mesh add-on workloads](https://learn.microsoft.com/azure/aks/istio-metrics-managed-prometheus)
+- [Use Grafana with Kubernetes](https://learn.microsoft.com/azure/azure-monitor/visualize/grafana-kubernetes)

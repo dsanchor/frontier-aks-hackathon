@@ -1,52 +1,56 @@
-# Challenge 10 — Persistent Storage
+# Challenge 10 — Enterprise Networking
 
 [< Previous Challenge](./Challenge-09.md) — **[Home](../README.md)** — [Next Challenge >](./Challenge-11.md)
 
 ## Introduction
 
-Pods are disposable, but application data is not. In this challenge you will add durable storage to FabTech so the database keeps its data across pod restarts and shared application content can be accessed by more than one pod.
-
-> **Note:** In Challenge 03 you deployed an **in-cluster PostgreSQL** using the Bitnami Helm chart. In this challenge you will migrate that database to a **StatefulSet backed by dynamically provisioned persistent storage** so you can observe PVC provisioning, Azure Disk attachment, and data survival across pod restarts first-hand.
+Enterprise AKS environments often require private management access, controlled outbound connectivity, and private access to supporting platform services. In this challenge you will design and validate a more locked-down networking posture for a production-style cluster.
 
 ## Description
 
-- Replace the temporary database storage with dynamically provisioned persistent storage backed by Azure Disks.
-- Use a CSI-backed storage class that is appropriate for a stateful database workload.
-- Ensure the database workload is using a persistent volume claim rather than ephemeral container storage.
-- Validate persistence by creating application data, recreating the database pod, and confirming that the data remains available.
-- Add a separate shared storage path backed by Azure Files for content that must be mounted read-write by multiple pods at the same time.
-- Update the application design so the shared storage can be accessed from more than one workload.
-- Compare the access mode requirements for database storage versus shared application files.
+- Create or use an AKS cluster with a private API server endpoint so cluster management stays on the private network path.
+- Ensure your cluster design uses Virtual Machine Scale Sets for node pools.
+- Provide a controlled outbound path for cluster and workload egress through Azure Firewall or NAT Gateway.
+- Document the required outbound dependencies so the cluster can function without unrestricted internet access.
+- Enable private connectivity for Azure Container Registry so image pulls do not rely on the public internet.
+- Configure the App Routing add-on or the LoadBalancer Service created for the Gateway to use an internal load balancer rather than a public entry point.
+- Review how the application and platform traffic flows change when private endpoints and controlled egress are introduced.
 
 ## Hints
 
-- Azure Disk is typically the right fit for a single-writer database volume.
-- Azure Files is designed for shared access across multiple pods and nodes.
-- ReadWriteOnce and ReadWriteMany describe different storage behaviors and should influence your design choices.
-- Dynamic provisioning should create the backing storage resource when the claim is created.
+- Private clusters affect both day-to-day administration and troubleshooting workflows.
+- Egress control is about choosing and governing the approved outbound path, not simply blocking everything.
+- Private DNS is an important part of making private endpoints work consistently.
+- Internal Gateway LB is often paired with private front-end patterns elsewhere in the architecture.
 
 ## Notes
 
-- NOTE: The database scenario in this challenge should use managed disk-backed persistent storage, not temporary node storage.
-- NOTE: Shared read-write storage is a separate requirement from database persistence and usually needs a different storage type.
-- NOTE: Test persistence with a pod recreation event, not only with an application restart inside the same pod.
+- NOTE: VM Availability Sets for AKS node pools are retired. Use VMSS-based node pools.
+- NOTE: Private AKS clusters require a management path from within the network boundary or an approved remote access pattern. Use `az aks command invoke` to run `kubectl` commands without a VPN or jumpbox.
+- NOTE: Private endpoints for registry access are especially valuable when image supply chain control is part of the security posture.
+- ⚠️ **WARNING:** Converting an **existing public AKS cluster to a private cluster is not supported in-place.** You must create a new cluster with `--enable-private-cluster` from the start. Plan your private cluster strategy before initial provisioning.
 
 ## Optional Advanced
 
-- Protect the persistent volumes with Azure Backup for AKS and review the restore workflow.
-- Compare standard and premium storage classes for cost and performance trade-offs.
-- Discuss how backup and restore expectations differ for databases versus shared file content.
+- Use Cilium layer 7 policy to restrict API traffic by HTTP behavior rather than only by port and source.
+- Compare Azure Firewall and NAT Gateway as egress strategies for this design.
+- Extend the private endpoint model to additional services used by the platform, such as Key Vault.
 
 ## Success Criteria
 
-1. The database workload uses a dynamically provisioned persistent volume claim backed by Azure Disk.
-2. Database data survives deletion and recreation of the database pod.
-3. A shared Azure Files-backed claim is available to multiple pods with read-write access.
-4. You can explain to your coach when to choose Azure Disk, Azure Files, ReadWriteOnce, and ReadWriteMany.
+1. The AKS control plane is private and is not exposed through a public API server endpoint.
+2. Cluster and workload egress follow an intentional path through Azure Firewall or NAT Gateway.
+3. Azure Container Registry is reachable through a private endpoint for image pulls.
+4. The application is exposed through an internal load balancer only. For Gateway API via App
+   Routing, configure the LoadBalancer Service created for the Gateway—or the App Routing add-on
+   configuration that manages it—to use
+   `service.beta.kubernetes.io/azure-load-balancer-internal: "true"`.
+5. You can explain to your coach how private access, controlled egress, and private registry connectivity improve the enterprise security posture.
 
 ## Learning Resources
 
-- [Storage options for applications in AKS](https://learn.microsoft.com/azure/aks/concepts-storage)
-- [Use Azure Disk CSI driver in AKS](https://learn.microsoft.com/azure/aks/azure-disk-csi)
-- [Use Azure Files CSI driver in AKS](https://learn.microsoft.com/azure/aks/azure-files-csi)
-- [Azure Kubernetes Service backup overview](https://learn.microsoft.com/azure/backup/azure-kubernetes-service-backup-overview)
+- [Create a private AKS cluster](https://learn.microsoft.com/azure/aks/private-clusters)
+- [Establish network connectivity to a private AKS cluster](https://learn.microsoft.com/azure/aks/private-cluster-connect)
+- [AKS outbound types and egress design](https://learn.microsoft.com/azure/aks/egress-outboundtype)
+- [Use Azure Container Registry with Private Link](https://learn.microsoft.com/azure/container-registry/container-registry-private-link)
+- [Azure Private Link overview](https://learn.microsoft.com/azure/private-link/private-link-overview)

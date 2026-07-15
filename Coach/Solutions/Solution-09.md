@@ -1,270 +1,292 @@
-# Challenge 09 — Service Mesh with AKS Istio — Coach Solution
+# Challenge 09 — Storage — Coach Solution
 
 [< Previous Solution](./Solution-08.md) | [Home](../../README.md) | [Next Solution >](./Solution-10.md)
 
 ## Notes & Guidance
 
-- The Istio revision label format is `asm-1-XX` — get the exact value with:
-  `az aks mesh get-revisions --location $LOCATION`
-- After enabling the namespace label for sidecar injection, **all pods must be restarted**
-  to get the Envoy sidecar injected. Teams forget this step.
-- The canary traffic split via `VirtualService` is the most visually engaging demo.
-  Set up two Deployments (`v1` and `v2`) with different `version` labels and a
-  `DestinationRule` that defines the subsets.
-- `istioctl manifest apply` was **removed in Istio 1.7**. Never use it — use `istioctl install`
-  or (better) the AKS managed add-on.
-- **App Routing Istio + Mesh add-on cannot coexist.** If the cluster was set up with
-  `--enable-app-routing-istio` (from Challenge 03), this must be disabled before enabling the
-  Istio mesh add-on. See Part 1 for the required pre-step.
-- **Enable the Istio external ingress gateway** (`az aks mesh enable-ingress-gateway`) to expose
-  your application once the mesh add-on replaces App Routing's Istio implementation.
-- **Multi-arch clusters:** If using NAP/Karpenter with default settings, spot nodes may be
-  provisioned on ARM64 (e.g., `Standard_Dxxxpls_v6`). Application images built on AMD64 will
-  crash on ARM64 nodes. Restrict the NodePool: `requirements: [{key: kubernetes.io/arch, operator: In, values: [amd64]}]`
+- **Pedagogical intent:** Challenge 03 deployed an in-cluster PostgreSQL using the Bitnami Helm chart. This challenge migrates that database to a StatefulSet backed by dynamically provisioned persistent storage. The goal is to observe PVC provisioning, Azure Disk CSI attachment, and data persistence through pod recreation first-hand.
+
+- Key concept to drive home: **ReadWriteOnce (RWO)** for Azure Disk (one pod at a time,
+  not shareable across nodes); **ReadWriteMany (RWX)** for Azure Files (multiple pods,
+  multiple nodes).
+- `StatefulSet` with `volumeClaimTemplates` creates one PVC per pod replica. This is
+  fundamentally different from a Deployment with one PVC — emphasize this pattern for
+  stateful workloads (databases, message queues).
+- Azure Backup for AKS is relatively new. The Portal wizard is easier than pure CLI.
+  Good to show for completeness but not a blocker for the challenge.
+- The `managed-csi-premium` storage class (Premium SSD) is preferred for production
+  database workloads; `managed-csi` (Standard SSD) is fine for the hackathon.
 
 ### Common Issues
 
-- **`az aks mesh enable` fails with "AppRouting Istio Gateway API implementation must be disabled":**
-  Run `az aks update --disable-app-routing-istio` first, then retry `az aks mesh enable`.
-- **App not accessible after enabling mesh (gateway pods crash with "istiod not found"):**
-  The App Routing Istio gateway pods rely on `istiod.aks-istio-system.svc` which is replaced
-  by `istiod-asm-1-XX.aks-istio-system.svc` after the mesh add-on is enabled. The old gateway
-  pods lose their xDS control plane connection and stop routing traffic. Solution:
-  enable the Istio ingress gateway and switch the Gateway resource to use GatewayClass `istio`.
-- **Pods crash with `exec format error` after sidecar injection:** Karpenter provisioned ARM64
-  nodes. The app images are AMD64-only. Delete the ARM64 nodes and restrict the NodePool to
-  `kubernetes.io/arch: amd64`. Also add a `nodeSelector` to the deployments.
-- **Sidecars not injecting:** Verify the namespace label:
-  `kubectl get namespace fabtech --show-labels | grep istio.io/rev`
-  Then restart pods: `kubectl rollout restart deployment -n fabtech`
-- **mTLS blocking traffic from the Gateway:** The Istio Gateway pod runs with
-  `sidecar.istio.io/inject=false` so it communicates with the mesh via Envoy (not a sidecar).
-  STRICT mTLS is compatible with the Istio-managed gateway. The gateway pod itself handles
-  the mTLS handshake.
-- **Kiali not available in AKS managed Istio:** Managed Istio ships without Kiali by default.
-  Teams can observe traffic via the Istio metrics in Grafana (Managed Prometheus integration).
-  Alternatively, use `kubectl exec ... -- wget -qO- http://localhost:15020/stats/prometheus`
-  to read raw Istio metrics from any sidecar-injected pod.
+- **Pod stuck in Pending due to PVC not bound:** Check `kubectl describe pvc`. Common causes:
+  wrong storage class name, zone mismatch between PVC and node.
+- **Azure Files RWX mount failing:** Ensure the `azurefile-csi` or `azurefile-csi-premium`
+  storage class is used.
+- **Data lost after pod deletion:** Usually means the pod was using `emptyDir` instead of a
+  PVC, or the PVC was deleted along with the pod (StatefulSet `--cascade=orphan` avoids this).
+- **`CreateContainerConfigError: couldn't find key password in Secret`:** The existing
+  `fabtech-db-secret` from Challenge 04 only contains `connectionString`, not `password`.
+  Either create a new secret or patch the existing one:
+  ```bash
+  kubectl patch secret fabtech-db-secret -n fabtech --type=json \
+    -p='[{"op":"add","path":"/data/password","value":"'$(echo -n $DB_PASS | base64 -w0)'"}]'
+  ```
+- **`Permission denied` creating `/var/lib/postgresql/data/pgdata`:** The official `postgres`
+  image runs as UID 999 but Azure Disk volumes are mounted with root ownership. Add
+  `securityContext.fsGroup: 999` at the **pod** level (not container level) so Kubernetes
+  `chown`s the volume on attach. Also set `PGDATA=/var/lib/postgresql/data/pgdata` env var
+  to avoid the "data directory is not empty" error on first init.
+- **`runAsUser: 100` breaks the postgres container:** The guide's security context uses
+  `runAsUser: 100` which is the `games` user — postgres requires UID 999. Use `runAsUser: 999`
+  for the postgres container. `readOnlyRootFilesystem: true` also must be omitted — PostgreSQL
+  writes to its data directory and `/tmp` at runtime.
 
 ## Solution
 
-### Part 1: Enable AKS Managed Istio
+### Storage Classes Reference
 
 ```bash
-RG=rg-frontier-aks
-CLUSTER_NAME=aks-frontier
-LOCATION=swedencentral
-
-# PRE-STEP: If the cluster was set up with App Routing Istio (Challenge 03),
-# the App Routing Istio integration must be disabled before enabling the mesh add-on.
-# This is required — the two implementations cannot coexist.
-az aks update \
-  --resource-group $RG \
-  --name $CLUSTER_NAME \
-  --disable-app-routing-istio
-
-# Check available revisions
-az aks mesh get-revisions --location $LOCATION -o table
-
-# Enable managed Istio (use the latest asm revision shown above)
-az aks mesh enable \
-  --resource-group $RG \
-  --name $CLUSTER_NAME \
-  --revision asm-1-29
-
-# Verify istiod pods are running
-kubectl get pods -n aks-istio-system
-
-# Enable the external ingress gateway (replaces the old App Routing gateway)
-az aks mesh enable-ingress-gateway \
-  --resource-group $RG \
-  --name $CLUSTER_NAME \
-  --ingress-gateway-type External
-
-# Get the new external IP
-kubectl get svc -n aks-istio-ingress
+kubectl get storageclass
+# Key classes:
+# managed-csi              → Standard SSD Azure Disk (RWO)
+# managed-csi-premium      → Premium SSD Azure Disk (RWO)
+# azurefile-csi            → Standard Azure Files (RWX)
+# azurefile-csi-premium    → Premium Azure Files SMB (RWX)
 ```
 
-Update the Gateway resource to use the `istio` GatewayClass (the mesh add-on's Gateway controller):
+### Part 1: PostgreSQL StatefulSet with Azure Disk (RWO)
 
 ```yaml
-# fabtech-gateway.yaml
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: fabtech-gateway
-  namespace: fabtech
-spec:
-  gatewayClassName: istio
-  listeners:
-  - name: http
-    protocol: HTTP
-    port: 80
-    allowedRoutes:
-      namespaces:
-        from: Same
-```
-
-```bash
-kubectl apply -f fabtech-gateway.yaml
-
-# Get the new gateway IP (different from the old App Routing IP)
-kubectl get gateway fabtech-gateway -n fabtech
-# Note: The Gateway controller creates a new LoadBalancer service and IP.
-# Update DNS or client configurations to use the new IP.
-```
-
-### Part 2: Enable Sidecar Injection
-
-```bash
-# Label the namespace for automatic injection
-# Get the exact revision label first:
-REVISION=$(az aks mesh get-revisions --location $LOCATION -o tsv --query 'meshRevisions[-1].revision')
-echo "REVISION=$REVISION"
-kubectl label namespace fabtech istio.io/rev=$REVISION
-
-# Restart application deployments ONLY (not the gateway deployment)
-kubectl rollout restart deployment/fabtech-api deployment/fabtech-web -n fabtech
-
-# Verify sidecars — each pod should now show 2/2 containers (app + istio-proxy)
-kubectl get pods -n fabtech
-```
-
-> **Note:** `kubectl rollout restart deployment -n fabtech` restarts ALL deployments in the
-> namespace, including the Gateway deployment. If Flux GitOps is active, the deployments may
-> revert to a placeholder image during the rollout. Prefer restarting only the app deployments
-> explicitly, and ensure Flux GitOps is suspended (or images are correct) before restarting.
-
-### Part 3: Configure mTLS (STRICT Mode)
-
-```yaml
-# peer-auth.yaml
-apiVersion: security.istio.io/v1
-kind: PeerAuthentication
-metadata:
-  name: default
-  namespace: fabtech
-spec:
-  mtls:
-    mode: STRICT
-```
-
-```bash
-kubectl apply -f peer-auth.yaml
-
-# Verify — traffic from a non-mesh pod should fail.
-# Run this from the default namespace so the pod is outside the mesh (no sidecar);
-# pods outside the mesh cannot reach a service protected by STRICT mTLS.
-kubectl run test-plain -n default --image=curlimages/curl --restart=Never -- \
-  curl -s http://fabtech-api.fabtech.svc.cluster.local:3001/api/health
-# Expected: connection reset or SSL handshake failure
-```
-
-### Part 4: Canary Traffic Split
-
-First, patch the existing `fabtech-api` deployment to add the `version: v1` label:
-
-```bash
-kubectl patch deployment fabtech-api -n fabtech --type=merge -p \
-  '{"spec":{"template":{"metadata":{"labels":{"version":"v1"}}}}}'
-```
-
-> **Coach Note:** The `version: v1` label is not in the Helm chart. A subsequent Helm upgrade
-> or Flux reconciliation will revert this. Ensure Flux is suspended or the chart values include
-> this label before proceeding with the canary.
-
-Then deploy a v2 of the API (`app: fabtech-api`, `version: v2` labels):
-
-```yaml
-# fabtech-api-v2-deployment.yaml
+# postgres-statefulset.yaml
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: fabtech-api-v2
+  name: postgres
   namespace: fabtech
 spec:
+  serviceName: postgres
   replicas: 1
   selector:
     matchLabels:
-      app: fabtech-api
-      version: v2
+      app: postgres
   template:
     metadata:
       labels:
-        app: fabtech-api
-        version: v2
+        app: postgres
     spec:
       nodeSelector:
         kubernetes.io/arch: amd64
-      serviceAccountName: fabtech-api-sa
+      securityContext:
+        fsGroup: 999        # chown volume to postgres group on attach
       containers:
-      - name: api
-        image: <ACR_NAME>.azurecr.io/fabtech-api:v2
+      - name: postgres
+        image: postgres:16
         securityContext:
           runAsNonRoot: true
-          runAsUser: 100
+          runAsUser: 999    # postgres UID — NOT 100
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+          # readOnlyRootFilesystem is intentionally omitted for database workloads
+          # PostgreSQL requires write access to its data directory and /tmp
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fabtech-db-secret
+              key: password
+        - name: POSTGRES_DB
+          value: fabtech
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata   # subdirectory avoids "not empty" init error
+        ports:
+        - containerPort: 5432
         volumeMounts:
-        - name: secrets-store
-          mountPath: /mnt/secrets
-          readOnly: true
-      volumes:
-      - name: secrets-store
-        csi:
-          driver: secrets-store.csi.k8s.io
-          readOnly: true
-          volumeAttributes:
-            secretProviderClass: fabtech-secrets
-```
-
-```yaml
-# destination-rule.yaml
-apiVersion: networking.istio.io/v1
-kind: DestinationRule
-metadata:
-  name: fabtech-api
-  namespace: fabtech
-spec:
-  host: fabtech-api
-  subsets:
-  - name: v1
-    labels:
-      version: v1
-  - name: v2
-    labels:
-      version: v2
+        - name: data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: managed-csi-premium
+      resources:
+        requests:
+          storage: 10Gi
 ---
-# virtual-service.yaml
-apiVersion: networking.istio.io/v1
-kind: VirtualService
+apiVersion: v1
+kind: Service
 metadata:
-  name: fabtech-api
+  name: postgres
   namespace: fabtech
 spec:
-  hosts:
-  - fabtech-api
-  http:
-  - route:
-    - destination:
-        host: fabtech-api
-        subset: v1
-      weight: 80
-    - destination:
-        host: fabtech-api
-        subset: v2
-      weight: 20
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+  clusterIP: None
 ```
 
 ```bash
-kubectl apply -f destination-rule.yaml
-kubectl apply -f virtual-service.yaml
-
-# Generate traffic and observe split in Grafana
-for i in {1..50}; do
-  kubectl exec -n fabtech deploy/fabtech-web -- \
-    curl -s http://fabtech-api:3001/api/version
-done
+kubectl apply -f postgres-statefulset.yaml
+kubectl get pvc -n fabtech
+kubectl get pods -n fabtech -l app=postgres
 ```
+
+### Part 2: Data Persistence Test
+
+```bash
+# Insert test data
+kubectl exec -n fabtech postgres-0 -- \
+  psql -U postgres -d fabtech -c "CREATE TABLE test (id serial, val text);"
+kubectl exec -n fabtech postgres-0 -- \
+  psql -U postgres -d fabtech -c "INSERT INTO test (val) VALUES ('persistent-data');"
+
+# Delete the pod (StatefulSet will recreate it)
+kubectl delete pod postgres-0 -n fabtech
+kubectl wait --for=condition=Ready pod/postgres-0 -n fabtech --timeout=60s
+
+# Verify data survived
+kubectl exec -n fabtech postgres-0 -- \
+  psql -U postgres -d fabtech -c "SELECT * FROM test;"
+```
+
+### Part 3: Azure Files Share for Shared Config (RWX)
+
+```yaml
+# shared-config-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-config
+  namespace: fabtech
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: azurefile-csi
+  resources:
+    requests:
+      storage: 5Gi
+```
+
+```bash
+kubectl apply -f shared-config-pvc.yaml
+kubectl get pvc shared-config -n fabtech
+# STATUS should be Bound
+```
+
+Mount in the API deployment to demonstrate shared access:
+
+```yaml
+volumes:
+- name: shared-config
+  persistentVolumeClaim:
+    claimName: shared-config
+containers:
+- name: api
+  volumeMounts:
+  - name: shared-config
+    mountPath: /app/config
+```
+
+### Part 4: Azure Backup for AKS (Optional)
+
+> **Coach Note:** The Azure Portal wizard is the most reliable way to complete this step end-to-end.
+> The CLI path for creating backup instances has schema bugs that make it error-prone (see Common Issues).
+> Use CLI for infrastructure (extension, vault, policy, roles) and the Portal for backup instance creation.
+
+```bash
+# Step 1: Create a storage account for backup staging
+SA_NAME="stbackup$RANDOM"
+az storage account create \
+  --name $SA_NAME \
+  --resource-group $RG \
+  --location $LOCATION \
+  --sku Standard_LRS --kind StorageV2
+
+az storage container create \
+  --name backup --account-name $SA_NAME --auth-mode login
+
+# Step 2: Install the AKS Backup extension on the cluster
+az k8s-extension create \
+  --name azure-aks-backup \
+  --extension-type microsoft.dataprotection.kubernetes \
+  --scope cluster \
+  --cluster-type managedClusters \
+  --cluster-name $CLUSTER_NAME \
+  --resource-group $RG \
+  --release-train stable \
+  --configuration-settings \
+    blobContainer=backup \
+    storageAccount=$SA_NAME \
+    storageAccountResourceGroup=$RG \
+    storageAccountSubscriptionId=$(az account show --query id -o tsv)
+
+# Verify backup agent pods are running
+kubectl get pods -n dataprotection-microsoft
+
+# Step 3: Create Backup Vault with system-assigned identity
+az dataprotection backup-vault create \
+  --resource-group $RG \
+  --vault-name "bv-$CLUSTER_NAME" \
+  --location $LOCATION \
+  --storage-settings datastore-type="VaultStore" type="LocallyRedundant"
+
+# Enable system-assigned identity (required for backup operations)
+az dataprotection backup-vault update \
+  --resource-group $RG --vault-name "bv-$CLUSTER_NAME" --type SystemAssigned
+
+# Step 4: Assign required roles
+VAULT_PRINCIPAL=$(az dataprotection backup-vault show \
+  --resource-group $RG --vault-name "bv-$CLUSTER_NAME" \
+  --query identity.principalId -o tsv)
+CLUSTER_ID=$(az aks show --resource-group $RG --name $CLUSTER_NAME --query id -o tsv)
+SA_ID=$(az storage account show --name $SA_NAME --resource-group $RG --query id -o tsv)
+KUBELET_PRINCIPAL=$(az aks show --resource-group $RG --name $CLUSTER_NAME \
+  --query "identityProfile.kubeletidentity.objectId" -o tsv)
+
+az role assignment create --assignee-object-id $VAULT_PRINCIPAL \
+  --assignee-principal-type ServicePrincipal --role "Reader" --scope $CLUSTER_ID
+az role assignment create --assignee-object-id $VAULT_PRINCIPAL \
+  --assignee-principal-type ServicePrincipal \
+  --role "Storage Blob Data Contributor" --scope $SA_ID
+az role assignment create --assignee-object-id $KUBELET_PRINCIPAL \
+  --assignee-principal-type ServicePrincipal \
+  --role "Storage Blob Data Contributor" --scope $SA_ID
+
+# Step 5: Enable trusted access between vault and cluster
+az aks trustedaccess rolebinding create \
+  --resource-group $RG --cluster-name $CLUSTER_NAME \
+  --name backup-access \
+  --source-resource-id $(az dataprotection backup-vault show \
+    --resource-group $RG --vault-name "bv-$CLUSTER_NAME" --query id -o tsv) \
+  --roles Microsoft.DataProtection/backupVaults/backup-operator
+
+# Step 6: Create backup policy (4-hour incremental, 7-day retention)
+az dataprotection backup-policy create \
+  --resource-group $RG --vault-name "bv-$CLUSTER_NAME" --name "daily-7d" \
+  --policy '{
+    "datasourceTypes":["Microsoft.ContainerService/managedClusters"],
+    "name":"daily-7d","objectType":"BackupPolicy",
+    "policyRules":[
+      {"backupParameters":{"backupType":"Incremental","objectType":"AzureBackupParams"},
+       "dataStore":{"dataStoreType":"OperationalStore","objectType":"DataStoreInfoBase"},
+       "name":"BackupHourly","objectType":"AzureBackupRule",
+       "trigger":{"objectType":"ScheduleBasedTriggerContext",
+         "schedule":{"repeatingTimeIntervals":["R/2026-07-01T02:00:00+00:00/PT4H"],"timeZone":"UTC"},
+         "taggingCriteria":[{"isDefault":true,"tagInfo":{"id":"Default_","tagName":"Default"},"taggingPriority":99}]}},
+      {"isDefault":true,
+       "lifecycles":[{"deleteAfter":{"duration":"P7D","objectType":"AbsoluteDeleteOption"},
+         "sourceDataStore":{"dataStoreType":"OperationalStore","objectType":"DataStoreInfoBase"}}],
+       "name":"Default","objectType":"AzureRetentionRule"}
+    ]}'
+```
+
+**Step 7 — Create backup instance via Azure Portal** (recommended — CLI has schema bugs):
+
+Navigate to: **Azure Portal → AKS cluster → Backup → Configure backup**
+- Select vault: `bv-<cluster>`
+- Select policy: `daily-7d`
+- Select namespaces: `fabtech`
+- Enable volume snapshots: Yes

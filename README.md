@@ -54,14 +54,14 @@ By the end of the hack you will have hands-on experience with:
   - Implement continuous delivery using the AKS Flux v2 extension and Git as the source of truth
 - Challenge 08: **[AKS Security](Student/Challenge-08.md)**
   - Enforce policies, harden RBAC, and activate Microsoft Defender for Containers
-- Challenge 09: **[AKS Managed Istio Service Mesh](Student/Challenge-09.md)**
-  - Secure and control service-to-service traffic with the AKS-managed Istio add-on
-- Challenge 10: **[Persistent Storage](Student/Challenge-10.md)**
+- Challenge 09: **[Persistent Storage](Student/Challenge-09.md)**
   - Configure dynamic persistent storage with Azure Disks and Azure Files
-- Challenge 11: **[Enterprise Networking](Student/Challenge-11.md)**
+- Challenge 10: **[Enterprise Networking](Student/Challenge-10.md)**
   - Harden cluster networking with private API server, Cilium network policies, and egress control
-- Challenge 12: **[AKS Fleet Manager](Student/Challenge-12.md)**
+- Challenge 11: **[AKS Fleet Manager](Student/Challenge-11.md)**
   - Manage multiple clusters at scale with AKS Fleet Manager
+- Challenge 12: **[AKS Managed Istio Service Mesh](Student/Challenge-12.md)**
+  - Secure and control service-to-service traffic with the AKS-managed Istio add-on
 
 ### Optional Extensions
 

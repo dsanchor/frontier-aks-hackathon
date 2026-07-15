@@ -1,233 +1,270 @@
-# Challenge 12 — AKS Fleet Manager — Coach Solution
+# Challenge 12 — Service Mesh with AKS Istio — Coach Solution
 
 [< Previous Solution](./Solution-11.md) | [Home](../../README.md) | [Next Solution (Optional) >](./Solution-13.md)
 
 ## Notes & Guidance
 
-- **Fleet hub creation takes ~5 minutes.** Set expectations early.
-- `ClusterResourcePlacement` resources are applied on the **Fleet hub cluster** kubeconfig,
-  not the member cluster kubeconfig. Teams frequently apply to the wrong cluster.
-- The `placement.kubernetes-fleet.io` CRDs only exist on the Fleet hub cluster.
-- For teams with only one cluster: use `aks-frontier-private` from Challenge 11 as the second
-  member — no need to create a new cluster.
-- The **upgrade run** demo is impressive — show the staged strategy even if not fully
-  executing it (describing it is sufficient for the success criterion).
-- **RBAC required before `kubectl get memberclusters` works.** After creating the fleet hub
-  and getting credentials, you must assign **two** roles to yourself on the fleet resource:
-  1. `Azure Kubernetes Fleet Manager RBAC Cluster Admin` (Kubernetes RBAC on the hub)
-  2. `Azure Kubernetes Fleet Manager Contributor Role` (ARM-level access to the hub API)
-  Without both, all `kubectl` commands against the hub return `403 Forbidden`.
-- **`az fleet get-credentials` does not support `--admin`** — there is only one credential
-  type. Always run `kubelogin convert-kubeconfig -l azurecli` after getting credentials.
-- **`az fleet member list` group field:** The `updateGroup` property does not appear in the
-  `--query` with the property name `updateGroup`. Use `-o json` and parse the `group` field.
+- The Istio revision label format is `asm-1-XX` — get the exact value with:
+  `az aks mesh get-revisions --location $LOCATION`
+- After enabling the namespace label for sidecar injection, **all pods must be restarted**
+  to get the Envoy sidecar injected. Teams forget this step.
+- The canary traffic split via `VirtualService` is the most visually engaging demo.
+  Set up two Deployments (`v1` and `v2`) with different `version` labels and a
+  `DestinationRule` that defines the subsets.
+- `istioctl manifest apply` was **removed in Istio 1.7**. Never use it — use `istioctl install`
+  or (better) the AKS managed add-on.
+- **App Routing Istio + Mesh add-on cannot coexist.** If the cluster was set up with
+  `--enable-app-routing-istio` (from Challenge 03), this must be disabled before enabling the
+  Istio mesh add-on. See Part 1 for the required pre-step.
+- **Enable the Istio external ingress gateway** (`az aks mesh enable-ingress-gateway`) to expose
+  your application once the mesh add-on replaces App Routing's Istio implementation.
+- **Multi-arch clusters:** If using NAP/Karpenter with default settings, spot nodes may be
+  provisioned on ARM64 (e.g., `Standard_Dxxxpls_v6`). Application images built on AMD64 will
+  crash on ARM64 nodes. Restrict the NodePool: `requirements: [{key: kubernetes.io/arch, operator: In, values: [amd64]}]`
 
 ### Common Issues
 
-- **`kubectl get memberclusters` returns `403 Forbidden`:** Assign both
-  `Azure Kubernetes Fleet Manager RBAC Cluster Admin` AND
-  `Azure Kubernetes Fleet Manager Contributor Role` to your user on the fleet resource scope.
-  Wait ~30 seconds for role propagation, then re-run `az fleet get-credentials`.
-- **`az fleet` commands not found:** Requires `az fleet` extension:
-  `az extension add --name fleet`
-- **Member cluster join fails:** The Fleet hub and member clusters must be in the same or
-  peered subscription. Cross-subscription requires additional RBAC.
-- **ClusterResourcePlacement stuck in Scheduled but not Applied:** Check the member cluster
-  has the required CRDs. Simple resources (ConfigMap, Namespace) are safest for the demo.
-- **`az fleet updaterun create` requires a start command:** Creating the run does NOT start it.
-  After creation, run `az fleet updaterun start` separately. The run state will be `NotStarted`
-  until you explicitly start it.
+- **`az aks mesh enable` fails with "AppRouting Istio Gateway API implementation must be disabled":**
+  Run `az aks update --disable-app-routing-istio` first, then retry `az aks mesh enable`.
+- **App not accessible after enabling mesh (gateway pods crash with "istiod not found"):**
+  The App Routing Istio gateway pods rely on `istiod.aks-istio-system.svc` which is replaced
+  by `istiod-asm-1-XX.aks-istio-system.svc` after the mesh add-on is enabled. The old gateway
+  pods lose their xDS control plane connection and stop routing traffic. Solution:
+  enable the Istio ingress gateway and switch the Gateway resource to use GatewayClass `istio`.
+- **Pods crash with `exec format error` after sidecar injection:** Karpenter provisioned ARM64
+  nodes. The app images are AMD64-only. Delete the ARM64 nodes and restrict the NodePool to
+  `kubernetes.io/arch: amd64`. Also add a `nodeSelector` to the deployments.
+- **Sidecars not injecting:** Verify the namespace label:
+  `kubectl get namespace fabtech --show-labels | grep istio.io/rev`
+  Then restart pods: `kubectl rollout restart deployment -n fabtech`
+- **mTLS blocking traffic from the Gateway:** The Istio Gateway pod runs with
+  `sidecar.istio.io/inject=false` so it communicates with the mesh via Envoy (not a sidecar).
+  STRICT mTLS is compatible with the Istio-managed gateway. The gateway pod itself handles
+  the mTLS handshake.
+- **Kiali not available in AKS managed Istio:** Managed Istio ships without Kiali by default.
+  Teams can observe traffic via the Istio metrics in Grafana (Managed Prometheus integration).
+  Alternatively, use `kubectl exec ... -- wget -qO- http://localhost:15020/stats/prometheus`
+  to read raw Istio metrics from any sidecar-injected pod.
 
 ## Solution
 
-### Part 1: Create Fleet Hub
+### Part 1: Enable AKS Managed Istio
 
 ```bash
 RG=rg-frontier-aks
+CLUSTER_NAME=aks-frontier
 LOCATION=swedencentral
-FLEET_NAME=fleet-frontier
 
-az extension add --name fleet --upgrade
-
-az fleet create \
+# PRE-STEP: If the cluster was set up with App Routing Istio (Challenge 03),
+# the App Routing Istio integration must be disabled before enabling the mesh add-on.
+# This is required — the two implementations cannot coexist.
+az aks update \
   --resource-group $RG \
-  --name $FLEET_NAME \
-  --location $LOCATION \
-  --enable-hub
+  --name $CLUSTER_NAME \
+  --disable-app-routing-istio
 
-echo "Fleet hub created: $FLEET_NAME"
+# Check available revisions
+az aks mesh get-revisions --location $LOCATION -o table
 
-# ⚠️ REQUIRED: Assign RBAC before kubectl will work against the hub
-MY_ID=$(az ad signed-in-user show --query id -o tsv)
-FLEET_ID=$(az fleet show --resource-group $RG --name $FLEET_NAME --query id -o tsv)
-
-az role assignment create \
-  --role "Azure Kubernetes Fleet Manager RBAC Cluster Admin" \
-  --assignee $MY_ID \
-  --scope $FLEET_ID
-
-az role assignment create \
-  --role "Azure Kubernetes Fleet Manager Contributor Role" \
-  --assignee $MY_ID \
-  --scope $FLEET_ID
-
-# Wait ~30s for role propagation, then get credentials
-sleep 30
-az fleet get-credentials \
+# Enable managed Istio (use the latest asm revision shown above)
+az aks mesh enable \
   --resource-group $RG \
-  --name $FLEET_NAME \
-  --overwrite-existing
+  --name $CLUSTER_NAME \
+  --revision asm-1-29
+
+# Verify istiod pods are running
+kubectl get pods -n aks-istio-system
+
+# Enable the external ingress gateway (replaces the old App Routing gateway)
+az aks mesh enable-ingress-gateway \
+  --resource-group $RG \
+  --name $CLUSTER_NAME \
+  --ingress-gateway-type External
+
+# Get the new external IP
+kubectl get svc -n aks-istio-ingress
 ```
 
-### Part 2: Join Member Clusters
-
-```bash
-CLUSTER_1=aks-frontier
-CLUSTER_2=aks-frontier-private  # from Challenge 11
-
-# Join cluster 1
-az fleet member create \
-  --resource-group $RG \
-  --fleet-name $FLEET_NAME \
-  --name member1 \
-  --member-cluster-id \
-    $(az aks show -g $RG -n $CLUSTER_1 --query id -o tsv)
-
-# Join cluster 2
-az fleet member create \
-  --resource-group $RG \
-  --fleet-name $FLEET_NAME \
-  --name member2 \
-  --member-cluster-id \
-    $(az aks show -g $RG -n $CLUSTER_2 --query id -o tsv)
-
-# List members — both should show JOINED=True
-kubectl get memberclusters
-```
-
-### Part 3: Workload Propagation with ClusterResourcePlacement
-
-First, create the resource to propagate on the fleet hub:
+Update the Gateway resource to use the `istio` GatewayClass (the mesh add-on's Gateway controller):
 
 ```yaml
-# fabtech-namespace.yaml
-apiVersion: v1
-kind: Namespace
+# fabtech-gateway.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
 metadata:
-  name: fabtech
-  labels:
-    fleet.azure.com/managed: "true"
-```
-
-```bash
-kubectl apply -f fabtech-namespace.yaml
-```
-
-`ClusterResourcePlacement` to propagate to all members:
-
-```yaml
-# crp-fabtech.yaml
-apiVersion: placement.kubernetes-fleet.io/v1beta1
-kind: ClusterResourcePlacement
-metadata:
-  name: fabtech-namespace
+  name: fabtech-gateway
+  namespace: fabtech
 spec:
-  resourceSelectors:
-  - group: ""
-    kind: Namespace
-    version: v1
-    name: fabtech
-  policy:
-    placementType: PickAll
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: Same
 ```
 
 ```bash
-kubectl apply -f crp-fabtech.yaml
+kubectl apply -f fabtech-gateway.yaml
 
-# Watch propagation — should reach Available=True within ~30s
-kubectl get clusterresourceplacement fabtech-namespace -w
-
-# Verify on member clusters
-# member1 (aks-frontier): switch context
-kubectl config use-context aks-frontier
-kubectl get namespace fabtech
-
-# member2 (aks-frontier-private): use command invoke (private cluster, no direct kubectl)
-az aks command invoke \
-  --resource-group $RG \
-  --name $CLUSTER_2 \
-  --command "kubectl get namespace fabtech"
+# Get the new gateway IP (different from the old App Routing IP)
+kubectl get gateway fabtech-gateway -n fabtech
+# Note: The Gateway controller creates a new LoadBalancer service and IP.
+# Update DNS or client configurations to use the new IP.
 ```
 
-### Part 4: Staged Rollout Strategy for Upgrades
+### Part 2: Enable Sidecar Injection
 
 ```bash
-# Assign members to DIFFERENT update groups for true staged rollout
-# member1 = canary (first), member2 = production (second)
-az fleet member update \
-  --resource-group $RG \
-  --fleet-name $FLEET_NAME \
-  --name member1 \
-  --update-group canary
+# Label the namespace for automatic injection
+# Get the exact revision label first:
+REVISION=$(az aks mesh get-revisions --location $LOCATION -o tsv --query 'meshRevisions[-1].revision')
+echo "REVISION=$REVISION"
+kubectl label namespace fabtech istio.io/rev=$REVISION
 
-az fleet member update \
-  --resource-group $RG \
-  --fleet-name $FLEET_NAME \
-  --name member2 \
-  --update-group production
+# Restart application deployments ONLY (not the gateway deployment)
+kubectl rollout restart deployment/fabtech-api deployment/fabtech-web -n fabtech
 
-# Verify group assignments
-az fleet member list --resource-group $RG --fleet-name $FLEET_NAME -o json | \
-  python3 -c "import sys,json; [print(m['name'],'->', m.get('group','?')) for m in json.load(sys.stdin)]"
-
-# Create a stages definition file — canary stage first with 60s wait, then production
-cat > stages.json << 'EOF'
-{
-  "stages": [
-    {
-      "name": "canary",
-      "groups": [
-        {
-          "name": "canary"
-        }
-      ],
-      "afterStageWaitInSeconds": 60
-    },
-    {
-      "name": "production",
-      "groups": [
-        {
-          "name": "production"
-        }
-      ]
-    }
-  ]
-}
-EOF
-
-# Create the upgrade run (NodeImageOnly is safe — no K8s version change needed)
-# For a full K8s version upgrade, use --upgrade-type Full --kubernetes-version <version>
-az fleet updaterun create \
-  --resource-group $RG \
-  --fleet-name $FLEET_NAME \
-  --name staged-nodeimage \
-  --upgrade-type NodeImageOnly \
-  --stages @stages.json
-
-# Show the run configuration
-az fleet updaterun show \
-  --resource-group $RG \
-  --fleet-name $FLEET_NAME \
-  --name staged-nodeimage \
-  --query "{name:name, upgradeType:managedClusterUpdate.upgrade.type, stages:strategy.stages[].{name:name, groups:groups[].name, waitSeconds:afterStageWaitInSeconds}}" -o json
-
-# ⚠️ NOTE: Creating the run does NOT start it.
-# To start the run (this will begin updating member1/canary first):
-# az fleet updaterun start --resource-group $RG --fleet-name $FLEET_NAME --name staged-nodeimage
+# Verify sidecars — each pod should now show 2/2 containers (app + istio-proxy)
+kubectl get pods -n fabtech
 ```
 
-> **For K8s version upgrades:** Use `--upgrade-type Full --kubernetes-version <version>` instead
-> of `NodeImageOnly`. Check available versions first:
-> ```bash
-> az aks get-versions -l swedencentral --query "values[].version" -o tsv
-> ```
+> **Note:** `kubectl rollout restart deployment -n fabtech` restarts ALL deployments in the
+> namespace, including the Gateway deployment. If Flux GitOps is active, the deployments may
+> revert to a placeholder image during the rollout. Prefer restarting only the app deployments
+> explicitly, and ensure Flux GitOps is suspended (or images are correct) before restarting.
+
+### Part 3: Configure mTLS (STRICT Mode)
+
+```yaml
+# peer-auth.yaml
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: fabtech
+spec:
+  mtls:
+    mode: STRICT
+```
+
+```bash
+kubectl apply -f peer-auth.yaml
+
+# Verify — traffic from a non-mesh pod should fail.
+# Run this from the default namespace so the pod is outside the mesh (no sidecar);
+# pods outside the mesh cannot reach a service protected by STRICT mTLS.
+kubectl run test-plain -n default --image=curlimages/curl --restart=Never -- \
+  curl -s http://fabtech-api.fabtech.svc.cluster.local:3001/api/health
+# Expected: connection reset or SSL handshake failure
+```
+
+### Part 4: Canary Traffic Split
+
+First, patch the existing `fabtech-api` deployment to add the `version: v1` label:
+
+```bash
+kubectl patch deployment fabtech-api -n fabtech --type=merge -p \
+  '{"spec":{"template":{"metadata":{"labels":{"version":"v1"}}}}}'
+```
+
+> **Coach Note:** The `version: v1` label is not in the Helm chart. A subsequent Helm upgrade
+> or Flux reconciliation will revert this. Ensure Flux is suspended or the chart values include
+> this label before proceeding with the canary.
+
+Then deploy a v2 of the API (`app: fabtech-api`, `version: v2` labels):
+
+```yaml
+# fabtech-api-v2-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fabtech-api-v2
+  namespace: fabtech
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fabtech-api
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: fabtech-api
+        version: v2
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      serviceAccountName: fabtech-api-sa
+      containers:
+      - name: api
+        image: <ACR_NAME>.azurecr.io/fabtech-api:v2
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 100
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: secrets-store
+          mountPath: /mnt/secrets
+          readOnly: true
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: fabtech-secrets
+```
+
+```yaml
+# destination-rule.yaml
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: fabtech-api
+  namespace: fabtech
+spec:
+  host: fabtech-api
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+---
+# virtual-service.yaml
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: fabtech-api
+  namespace: fabtech
+spec:
+  hosts:
+  - fabtech-api
+  http:
+  - route:
+    - destination:
+        host: fabtech-api
+        subset: v1
+      weight: 80
+    - destination:
+        host: fabtech-api
+        subset: v2
+      weight: 20
+```
+
+```bash
+kubectl apply -f destination-rule.yaml
+kubectl apply -f virtual-service.yaml
+
+# Generate traffic and observe split in Grafana
+for i in {1..50}; do
+  kubectl exec -n fabtech deploy/fabtech-web -- \
+    curl -s http://fabtech-api:3001/api/version
+done
+```
