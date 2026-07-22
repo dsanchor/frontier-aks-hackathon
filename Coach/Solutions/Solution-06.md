@@ -34,13 +34,13 @@
 ```bash
 # Ensure resource requests are set (HPA requires them)
 kubectl set resources deployment/fabtech-api \
-  --namespace fabtech \
+  --namespace $NAMESPACE \
   --requests=cpu=250m,memory=256Mi \
   --limits=cpu=500m,memory=512Mi
 
 # Create HPA
 kubectl autoscale deployment fabtech-api \
-  --namespace fabtech \
+  --namespace $NAMESPACE \
   --cpu-percent=50 \
   --min=2 \
   --max=10
@@ -54,11 +54,17 @@ Generate load in a separate terminal:
 kubectl run -it --rm load-test \
   --image=busybox \
   --restart=Never \
-  --namespace=fabtech \
-  -- sh -c "while true; do wget -q -O- http://fabtech-api:3001/api/health; done"
+  --namespace=$NAMESPACE \
+  -- sh -c 'i=0; while [ "$i" -lt 100 ]; do (while true; do wget -q -O /dev/null http://fabtech-api:3001/sessions; done) & i=$((i+1)); done; wait'
 ```
 
 ### Part 2: KEDA Add-on
+
+Before we start, remove the HPA from the `fabtech-api` deployment — KEDA will own scaling.
+
+```bash
+kubectl delete hpa fabtech-api -n $NAMESPACE
+```
 
 ```bash
 RG=rg-frontier-aks
@@ -137,22 +143,28 @@ kubectl rollout status deployment/keda-operator -n kube-system --timeout=60s
 
 KEDA `TriggerAuthentication` and `ScaledObject`:
 
-```yaml
+```bash
+NAMESPACE=fabtech
+
+cat <<'EOF' | sed \
+  -e "s|__NAMESPACE__|$NAMESPACE|g" \
+  -e "s|__MI_CLIENT_ID__|$MI_CLIENT_ID|g" \
+  -e "s|__SB_NS__|$SB_NS|g" | kubectl apply -f -
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
   name: fabtech-sb-auth
-  namespace: fabtech
+  namespace: __NAMESPACE__
 spec:
   podIdentity:
     provider: azure-workload   # NOT "azure-workload-identity"
-    identityId: "<MI_CLIENT_ID>"
+    identityId: "__MI_CLIENT_ID__"
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
   name: fabtech-api-scaler
-  namespace: fabtech
+  namespace: __NAMESPACE__
 spec:
   scaleTargetRef:
     name: fabtech-api
@@ -164,10 +176,11 @@ spec:
   - type: azure-servicebus
     metadata:
       queueName: fabtech-jobs
-      namespace: <SB_NS>
+      namespace: __SB_NS__
       messageCount: "5"
     authenticationRef:
       name: fabtech-sb-auth
+EOF
 ```
 
 Send test messages to trigger scale-up:
@@ -211,7 +224,7 @@ for i in range(20):
 print("Sent 20 messages")
 PYEOF
 
-kubectl get pods -n fabtech -w
+kubectl get pods -n $NAMESPACE -w
 ```
 
 ### Part 3: Node Auto Provisioning (Karpenter)
