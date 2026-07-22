@@ -55,7 +55,7 @@ kubectl run -it --rm load-test \
   --image=busybox \
   --restart=Never \
   --namespace=fabtech \
-  -- sh -c "while true; do wget -q -O- http://fabtech-api:3001/api/health; done"
+  -- sh -c "while true; do wget -q -O- http://fabtech-api:3001/stats; done"
 ```
 
 ### Part 2: KEDA Add-on
