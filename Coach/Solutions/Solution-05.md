@@ -47,6 +47,12 @@ MONITOR_WS_ID=$(az monitor account show \
   --resource-group $RG \
   --query id -o tsv)
 
+# For the shake of simplicity, remove the pdbs.
+# Those with allowd disruption to 0, would not allow cluster update
+for pdb in $(kubectl get pdb -n $NAMESPACE -o name); do
+  kubectl delete $pdb -n $NAMESPACE
+done
+
 # Link cluster to the workspace
 az aks update \
   --resource-group $RG \
@@ -61,7 +67,7 @@ kubectl get pods -n kube-system | grep ama-metrics
 ### Part 2: Azure Managed Grafana
 
 ```bash
-GRAFANA_NAME=grafana-frontier
+GRAFANA_NAME=grafana-frontier-$RANDOM
 
 # az grafana commands require the amg extension
 az extension add --name amg --upgrade
@@ -119,7 +125,7 @@ Run these in the Log Analytics workspace → Logs blade:
 // Container logs from fabtech namespace
 ContainerLogV2
 | where TimeGenerated > ago(10m)
-| where Namespace == "fabtech"
+| where PodNamespace == "fabtech"
 | project TimeGenerated, PodName, ContainerName, LogMessage
 | order by TimeGenerated desc
 | limit 50
