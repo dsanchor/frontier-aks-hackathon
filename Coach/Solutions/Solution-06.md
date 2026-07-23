@@ -233,8 +233,8 @@ kubectl get pods -n $NAMESPACE -w
 az aks show \
   --resource-group $RG \
   --name $CLUSTER_NAME \
-  --query "agentPoolProfiles[].{name:name,nodeProvisioningMode:nodeProvisioningMode}" \
-  -o table
+  --query "{nodeProvisioningProfile:nodeProvisioningProfile, agentPools:agentPoolProfiles[].{name:name,mode:mode}}" \
+  -o jsonc
 ```
 
 If you used **AKS Automatic** in Challenge 02, NAP is already available. For **AKS Standard**,
@@ -251,9 +251,10 @@ az aks create \
 If the cluster was not created with those flags, do not use `az aks update` to try to add
 NAP later — recreate the cluster with the correct Challenge 02 configuration instead.
 
-`NodePool` manifest:
+Apply the `NodePool` and `AKSNodeClass` manifests to enable Karpenter:
 
-```yaml
+```bash
+cat <<'EOF' | kubectl apply -f -
 apiVersion: karpenter.azure.com/v1beta1
 kind: AKSNodeClass
 metadata:
@@ -287,33 +288,38 @@ spec:
     consolidateAfter: 30s
     budgets:
     - nodes: "20%"   # At most 20% of nodes disrupted at once
+EOF
 ```
 
 ### Verify NAP — Trigger Provisioning and Consolidation
 
-Apply the `NodePool`, then force Karpenter to provision new nodes by deploying `pause`
+Enforce Karpenter to provision new nodes by deploying `pause`
 containers that each request 1 CPU — more than fits on the existing nodes:
 
 ```bash
-kubectl apply -f nodepool.yaml
 kubectl get nodepool general   # wait for READY=True
 
 # Deploy inflate workload — each replica requests 1 CPU
 kubectl create deployment inflate \
   --image=registry.k8s.io/pause:3.9 \
-  --replicas=20
+  --replicas=20 \
+  --namespace $NAMESPACE
 kubectl patch deployment inflate \
-  --patch '{"spec":{"template":{"spec":{"containers":[{"name":"pause","resources":{"requests":{"cpu":"1"}}}]}}}}'
+  --patch '{"spec":{"template":{"spec":{"containers":[{"name":"pause","resources":{"requests":{"cpu":"1"}}}]}}}}' \
+  --namespace $NAMESPACE
 
-# Watch Karpenter provision new nodes (typically within 60 s)
-kubectl get nodes -w
+# Watch the inflate pods go Pending (no nodes available)
+kubectl get pods -n $NAMESPACE -w | grep inflate
+
+# in a different terminal, watch Karpenter provision new nodes (typically within 60 s)
+kubectl get nodes -w | grep general
 
 # Confirm Karpenter created NodeClaim(s)
-kubectl get nodeclaims
+kubectl get nodeclaims | grep general
 
 # Clean up — Karpenter consolidates the now-idle nodes (consolidateAfter: 30s)
-kubectl delete deployment inflate
-kubectl get nodes -w   # watch the Karpenter nodes drain and disappear
+kubectl delete deployment inflate -n $NAMESPACE
+kubectl get nodes -w | grep general  # in a different terminal, watch the Karpenter nodes drain and disappear 
 ```
 
 > **Expected timeline:** new node visible in ~60 s after pods go Pending; node removed ~90 s
