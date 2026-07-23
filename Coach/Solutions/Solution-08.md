@@ -94,13 +94,15 @@ kubelogin convert-kubeconfig -l azurecli
 
 Optional Kubernetes RBAC example (**not** an Azure RBAC role assignment):
 
-```yaml
-# developer-rbac.yaml
+```bash
+cat <<'EOF' | sed \
+  -e "s|__NAMESPACE__|$NAMESPACE|g" \
+  -e "s|__DEVELOPER_GROUP_ID__|$DEVELOPER_GROUP_ID|g" | kubectl apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: developer
-  namespace: fabtech
+  namespace: __NAMESPACE__
 rules:
 - apiGroups: [""]
   resources: ["pods", "pods/log", "services", "configmaps"]
@@ -116,25 +118,24 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: developer-binding
-  namespace: fabtech
+  namespace: __NAMESPACE__
 subjects:
 - kind: Group
-  name: "<DEVELOPER_GROUP_ID>"
+  name: "__DEVELOPER_GROUP_ID__"
   apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role
   name: developer
   apiGroup: rbac.authorization.k8s.io
+EOF
 ```
 
 ```bash
-kubectl apply -f developer-rbac.yaml
-
 # Test Kubernetes RBAC RoleBinding behavior
 # Note: --as-group requires --as <username> as well; the warning about non-AAD user is expected
-kubectl auth can-i delete pods -n fabtech --as-group="$DEVELOPER_GROUP_ID" --as="devuser"
+kubectl auth can-i delete pods -n "$NAMESPACE" --as-group="$DEVELOPER_GROUP_ID" --as="devuser"
 # Expected: no
-kubectl auth can-i get pods -n fabtech --as-group="$DEVELOPER_GROUP_ID" --as="devuser"
+kubectl auth can-i get pods -n "$NAMESPACE" --as-group="$DEVELOPER_GROUP_ID" --as="devuser"
 # Expected: yes
 ```
 
@@ -178,7 +179,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: priv-test
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   containers:
   - name: c
@@ -198,15 +199,15 @@ EOF
 > gateway itself. You must allow both: external traffic into the gateway pod, and gateway-to-web
 > traffic using the gateway pod's label selector.
 
-```yaml
-# network-policies.yaml
+```bash
+cat <<EOF | kubectl apply -f -
 ---
-# Default deny all ingress traffic in fabtech namespace
+# Default deny all ingress traffic in target namespace
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-ingress
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   podSelector: {}
   policyTypes:
@@ -217,7 +218,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-external-to-gateway
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   podSelector:
     matchLabels:
@@ -229,12 +230,12 @@ spec:
     - protocol: TCP
       port: 15021
 ---
-# Allow Gateway → web (gateway pod is in fabtech ns, uses gateway-name label)
+# Allow Gateway -> web (gateway pod is in same namespace, uses gateway-name label)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-gateway-to-web
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   podSelector:
     matchLabels:
@@ -248,12 +249,12 @@ spec:
         matchLabels:
           gateway.networking.k8s.io/gateway-name: fabtech-gateway
 ---
-# Allow web → api
+# Allow web -> api
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-web-to-api
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   podSelector:
     matchLabels:
@@ -266,17 +267,17 @@ spec:
     ports:
     - protocol: TCP
       port: 3001
+EOF
 ```
 
 ```bash
-kubectl apply -f network-policies.yaml
-
 # Verify app is still reachable via the gateway
-curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://<GATEWAY_IP>
+GATEWAY_IP=$(kubectl get svc -n "$NAMESPACE" -o jsonpath='{.items[?(@.spec.type=="LoadBalancer")].status.loadBalancer.ingress[0].ip}')
+curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://"$GATEWAY_IP/sessions"
 # Expected: HTTP Status: 200
 
 # Test: unauthorized pod (no app=fabtech-web label) cannot reach API
-kubectl run -it --rm test-pod --image=busybox:1.36 --restart=Never -n fabtech -- \
-  wget -qO- --timeout=5 http://fabtech-api:3001/api/health
+kubectl run -it --rm test-pod --image=busybox:1.36 --restart=Never -n "$NAMESPACE" -- \
+  wget -qO- --timeout=5 http://fabtech-api:3001/sessions
 # Expected: connection refused or timeout (pod exits with error)
 ```
