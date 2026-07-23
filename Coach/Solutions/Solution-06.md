@@ -34,13 +34,13 @@
 ```bash
 # Ensure resource requests are set (HPA requires them)
 kubectl set resources deployment/fabtech-api \
-  --namespace fabtech \
+  --namespace $NAMESPACE \
   --requests=cpu=250m,memory=256Mi \
   --limits=cpu=500m,memory=512Mi
 
 # Create HPA
 kubectl autoscale deployment fabtech-api \
-  --namespace fabtech \
+  --namespace $NAMESPACE \
   --cpu-percent=50 \
   --min=2 \
   --max=10
@@ -54,11 +54,17 @@ Generate load in a separate terminal:
 kubectl run -it --rm load-test \
   --image=busybox \
   --restart=Never \
-  --namespace=fabtech \
-  -- sh -c "while true; do wget -q -O- http://fabtech-api:3001/stats; done"
+  --namespace=$NAMESPACE \
+  -- sh -c 'i=0; while [ "$i" -lt 100 ]; do (while true; do wget -q -O /dev/null http://fabtech-api:3001/sessions; done) & i=$((i+1)); done; wait'
 ```
 
 ### Part 2: KEDA Add-on
+
+Before we start, remove the HPA from the `fabtech-api` deployment — KEDA will own scaling.
+
+```bash
+kubectl delete hpa fabtech-api -n $NAMESPACE
+```
 
 ```bash
 RG=rg-frontier-aks
@@ -137,22 +143,28 @@ kubectl rollout status deployment/keda-operator -n kube-system --timeout=60s
 
 KEDA `TriggerAuthentication` and `ScaledObject`:
 
-```yaml
+```bash
+NAMESPACE=fabtech
+
+cat <<'EOF' | sed \
+  -e "s|__NAMESPACE__|$NAMESPACE|g" \
+  -e "s|__MI_CLIENT_ID__|$MI_CLIENT_ID|g" \
+  -e "s|__SB_NS__|$SB_NS|g" | kubectl apply -f -
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
   name: fabtech-sb-auth
-  namespace: fabtech
+  namespace: __NAMESPACE__
 spec:
   podIdentity:
     provider: azure-workload   # NOT "azure-workload-identity"
-    identityId: "<MI_CLIENT_ID>"
+    identityId: "__MI_CLIENT_ID__"
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
   name: fabtech-api-scaler
-  namespace: fabtech
+  namespace: __NAMESPACE__
 spec:
   scaleTargetRef:
     name: fabtech-api
@@ -164,10 +176,11 @@ spec:
   - type: azure-servicebus
     metadata:
       queueName: fabtech-jobs
-      namespace: <SB_NS>
+      namespace: __SB_NS__
       messageCount: "5"
     authenticationRef:
       name: fabtech-sb-auth
+EOF
 ```
 
 Send test messages to trigger scale-up:
@@ -211,7 +224,7 @@ for i in range(20):
 print("Sent 20 messages")
 PYEOF
 
-kubectl get pods -n fabtech -w
+kubectl get pods -n $NAMESPACE -w
 ```
 
 ### Part 3: Node Auto Provisioning (Karpenter)
@@ -220,8 +233,8 @@ kubectl get pods -n fabtech -w
 az aks show \
   --resource-group $RG \
   --name $CLUSTER_NAME \
-  --query "agentPoolProfiles[].{name:name,nodeProvisioningMode:nodeProvisioningMode}" \
-  -o table
+  --query "{nodeProvisioningProfile:nodeProvisioningProfile, agentPools:agentPoolProfiles[].{name:name,mode:mode}}" \
+  -o jsonc
 ```
 
 If you used **AKS Automatic** in Challenge 02, NAP is already available. For **AKS Standard**,
@@ -238,9 +251,10 @@ az aks create \
 If the cluster was not created with those flags, do not use `az aks update` to try to add
 NAP later — recreate the cluster with the correct Challenge 02 configuration instead.
 
-`NodePool` manifest:
+Apply the `NodePool` and `AKSNodeClass` manifests to enable Karpenter:
 
-```yaml
+```bash
+cat <<'EOF' | kubectl apply -f -
 apiVersion: karpenter.azure.com/v1beta1
 kind: AKSNodeClass
 metadata:
@@ -274,33 +288,38 @@ spec:
     consolidateAfter: 30s
     budgets:
     - nodes: "20%"   # At most 20% of nodes disrupted at once
+EOF
 ```
 
 ### Verify NAP — Trigger Provisioning and Consolidation
 
-Apply the `NodePool`, then force Karpenter to provision new nodes by deploying `pause`
+Enforce Karpenter to provision new nodes by deploying `pause`
 containers that each request 1 CPU — more than fits on the existing nodes:
 
 ```bash
-kubectl apply -f nodepool.yaml
 kubectl get nodepool general   # wait for READY=True
 
 # Deploy inflate workload — each replica requests 1 CPU
 kubectl create deployment inflate \
   --image=registry.k8s.io/pause:3.9 \
-  --replicas=20
+  --replicas=20 \
+  --namespace $NAMESPACE
 kubectl patch deployment inflate \
-  --patch '{"spec":{"template":{"spec":{"containers":[{"name":"pause","resources":{"requests":{"cpu":"1"}}}]}}}}'
+  --patch '{"spec":{"template":{"spec":{"containers":[{"name":"pause","resources":{"requests":{"cpu":"1"}}}]}}}}' \
+  --namespace $NAMESPACE
 
-# Watch Karpenter provision new nodes (typically within 60 s)
-kubectl get nodes -w
+# Watch the inflate pods go Pending (no nodes available)
+kubectl get pods -n $NAMESPACE -w | grep inflate
+
+# in a different terminal, watch Karpenter provision new nodes (typically within 60 s)
+kubectl get nodes -w | grep general
 
 # Confirm Karpenter created NodeClaim(s)
-kubectl get nodeclaims
+kubectl get nodeclaims | grep general
 
 # Clean up — Karpenter consolidates the now-idle nodes (consolidateAfter: 30s)
-kubectl delete deployment inflate
-kubectl get nodes -w   # watch the Karpenter nodes drain and disappear
+kubectl delete deployment inflate -n $NAMESPACE
+kubectl get nodes -w | grep general  # in a different terminal, watch the Karpenter nodes drain and disappear 
 ```
 
 > **Expected timeline:** new node visible in ~60 s after pods go Pending; node removed ~90 s
