@@ -27,10 +27,12 @@
   PVC, or the PVC was deleted along with the pod (StatefulSet `--cascade=orphan` avoids this).
 - **`CreateContainerConfigError: couldn't find key password in Secret`:** The existing
   `fabtech-db-secret` from Challenge 04 only contains `connectionString`, not `password`.
-  Either create a new secret or patch the existing one:
+  Prefer creating a dedicated secret for PostgreSQL credentials:
   ```bash
-  kubectl patch secret fabtech-db-secret -n fabtech --type=json \
-    -p='[{"op":"add","path":"/data/password","value":"'$(echo -n $DB_PASS | base64 -w0)'"}]'
+  kubectl create secret generic postgres-auth-secret \
+    --namespace "$NAMESPACE" \
+    --from-literal=password="$DB_PASS" \
+    --dry-run=client -o yaml | kubectl apply -f -
   ```
 - **`Permission denied` creating `/var/lib/postgresql/data/pgdata`:** The official `postgres`
   image runs as UID 999 but Azure Disk volumes are mounted with root ownership. Add
@@ -57,13 +59,23 @@ kubectl get storageclass
 
 ### Part 1: PostgreSQL StatefulSet with Azure Disk (RWO)
 
-```yaml
-# postgres-statefulset.yaml
+```bash
+DB_PASS=<choose-a-password>
+
+# Create a dedicated password secret for this StatefulSet
+kubectl create secret generic postgres-auth-secret \
+  --namespace "$NAMESPACE" \
+  --from-literal=password="$DB_PASS" \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+```bash
+cat <<EOF | kubectl apply -f -
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgres
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   serviceName: postgres
   replicas: 1
@@ -94,7 +106,7 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: fabtech-db-secret
+              name: postgres-auth-secret
               key: password
         - name: POSTGRES_DB
           value: fabtech
@@ -119,48 +131,49 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   selector:
     app: postgres
   ports:
   - port: 5432
   clusterIP: None
+EOF
 ```
 
 ```bash
-kubectl apply -f postgres-statefulset.yaml
-kubectl get pvc -n fabtech
-kubectl get pods -n fabtech -l app=postgres
+# note the PVC is bound, the capacity is 10Gi, and the storage class is managed-csi-premium
+kubectl get pvc -n "$NAMESPACE"
+kubectl get pods -n "$NAMESPACE" -l app=postgres
 ```
 
 ### Part 2: Data Persistence Test
 
 ```bash
 # Insert test data
-kubectl exec -n fabtech postgres-0 -- \
+kubectl exec -n $NAMESPACE postgres-0 -- \
   psql -U postgres -d fabtech -c "CREATE TABLE test (id serial, val text);"
-kubectl exec -n fabtech postgres-0 -- \
+kubectl exec -n $NAMESPACE postgres-0 -- \
   psql -U postgres -d fabtech -c "INSERT INTO test (val) VALUES ('persistent-data');"
 
 # Delete the pod (StatefulSet will recreate it)
-kubectl delete pod postgres-0 -n fabtech
-kubectl wait --for=condition=Ready pod/postgres-0 -n fabtech --timeout=60s
+kubectl delete pod postgres-0 -n $NAMESPACE
+kubectl wait --for=condition=Ready pod/postgres-0 -n $NAMESPACE --timeout=60s
 
 # Verify data survived
-kubectl exec -n fabtech postgres-0 -- \
+kubectl exec -n $NAMESPACE postgres-0 -- \
   psql -U postgres -d fabtech -c "SELECT * FROM test;"
 ```
 
 ### Part 3: Azure Files Share for Shared Config (RWX)
 
-```yaml
-# shared-config-pvc.yaml
+```bash
+cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: shared-config
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   accessModes:
   - ReadWriteMany
@@ -168,26 +181,43 @@ spec:
   resources:
     requests:
       storage: 5Gi
+EOF
 ```
 
 ```bash
-kubectl apply -f shared-config-pvc.yaml
-kubectl get pvc shared-config -n fabtech
-# STATUS should be Bound
+# Verify the PVC changes from Pending to Bound and the storage class is azurefile-csi
+kubectl get pvc shared-config -n $NAMESPACE -w
 ```
 
 Mount in the API deployment to demonstrate shared access:
 
-```yaml
-volumes:
-- name: shared-config
-  persistentVolumeClaim:
-    claimName: shared-config
-containers:
-- name: api
-  volumeMounts:
-  - name: shared-config
-    mountPath: /app/config
+NAMESPACE=fabtech
+
+```bash
+kubectl patch deployment fabtech-api \
+  -n "$NAMESPACE" \
+  --type='strategic' \
+  --patch '
+spec:
+  template:
+    spec:
+      volumes:
+      - name: shared-config
+        persistentVolumeClaim:
+          claimName: shared-config
+      containers:
+      - name: api
+        volumeMounts:
+        - name: shared-config
+          mountPath: /app/config
+'
+```
+
+Validate the mount:
+
+```bash
+kubectl get deployment fabtech-api -n "$NAMESPACE" -o yaml | grep -A6 -E "volumes:|volumeMounts:|shared-config"
+kubectl rollout status deployment/fabtech-api -n "$NAMESPACE"
 ```
 
 ### Part 4: Azure Backup for AKS (Optional)
