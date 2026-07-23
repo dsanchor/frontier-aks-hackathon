@@ -95,14 +95,12 @@ kubelogin convert-kubeconfig -l azurecli
 Optional Kubernetes RBAC example (**not** an Azure RBAC role assignment):
 
 ```bash
-cat <<'EOF' | sed \
-  -e "s|__NAMESPACE__|$NAMESPACE|g" \
-  -e "s|__DEVELOPER_GROUP_ID__|$DEVELOPER_GROUP_ID|g" | kubectl apply -f -
+cat <<EOF | kubectl apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: developer
-  namespace: __NAMESPACE__
+  namespace: $NAMESPACE
 rules:
 - apiGroups: [""]
   resources: ["pods", "pods/log", "services", "configmaps"]
@@ -118,10 +116,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: developer-binding
-  namespace: __NAMESPACE__
+  namespace: $NAMESPACE
 subjects:
 - kind: Group
-  name: "__DEVELOPER_GROUP_ID__"
+  name: "$DEVELOPER_GROUP_ID"
   apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role

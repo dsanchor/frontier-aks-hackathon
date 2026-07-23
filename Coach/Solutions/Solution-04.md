@@ -108,41 +108,36 @@ kubectl get pods -n kube-system -l app=secrets-store-provider-azure
 
 `SecretProviderClass` manifest:
 
-```yaml
-# secretproviderclass.yaml
+```bash
+TENANT_ID=$(az account show --query tenantId -o tsv)
+
+cat <<EOF | kubectl apply -f -
 apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:
   name: fabtech-secrets
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   provider: azure
   parameters:
     usePodIdentity: "false"
     useVMManagedIdentity: "false"
-    clientID: "<MI_CLIENT_ID>"
-    keyvaultName: "<KV_NAME>"
+    clientID: "$MI_CLIENT_ID"
+    keyvaultName: "$KV_NAME"
     cloudName: ""
     objects: |
       array:
         - |
           objectName: db-connection-string
           objectType: secret
-    tenantId: "<TENANT_ID>"
+    tenantId: "$TENANT_ID"
   secretObjects:
     - data:
         - key: connectionString
           objectName: db-connection-string
       secretName: fabtech-db-secret
       type: Opaque
-```
-
-```bash
-TENANT_ID=$(az account show --query tenantId -o tsv)
-sed -e "s/<MI_CLIENT_ID>/$MI_CLIENT_ID/g" \
-    -e "s/<KV_NAME>/$KV_NAME/g" \
-    -e "s/<TENANT_ID>/$TENANT_ID/g" \
-    secretproviderclass.yaml | kubectl apply -f -
+EOF
 ```
 
 ### Part 4: Update Deployment

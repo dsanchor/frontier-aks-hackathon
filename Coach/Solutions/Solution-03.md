@@ -93,13 +93,13 @@ kubectl get pods,svc -n $NAMESPACE
 > and registers the `approuting-istio` `GatewayClass`. No manual CRD install
 > is needed, but allow a couple of minutes for the `GatewayClass` to appear.
 
-```yaml
-# gateway.yaml
+```bash
+cat <<EOF | kubectl apply -f -
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: fabtech-gateway
-  namespace: fabtech
+  namespace: $NAMESPACE
   annotations:
     service.beta.kubernetes.io/azure-load-balancer-internal: "false"
 spec:
@@ -116,7 +116,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: fabtech-route
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   parentRefs:
   - name: fabtech-gateway
@@ -128,18 +128,16 @@ spec:
     backendRefs:
     - name: fabtech-web
       port: 3000
-```
+EOF
 
-```bash
-kubectl apply -f gateway.yaml
-kubectl get httproute -n fabtech        # confirm it is created
-kubectl get gateway -n fabtech          # wait for address to get an IP
+kubectl get httproute -n "$NAMESPACE"        # confirm it is created
+kubectl get gateway -n "$NAMESPACE"          # wait for address to get an IP
 ```
 
 In order to test the app, get the IP address of the Gateway and access to the web app on port 80 and http. The url would be:
 
 ```
-GATEWAY_IP_ADDRESS=$(kubectl get gateway fabtech-gateway -n fabtech \
+GATEWAY_IP_ADDRESS=$(kubectl get gateway fabtech-gateway -n "$NAMESPACE" \
   --output jsonpath='{.status.addresses[0].value}')
 echo http://$GATEWAY_IP_ADDRESS
 ```

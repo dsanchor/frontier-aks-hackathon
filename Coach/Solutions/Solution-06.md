@@ -144,27 +144,22 @@ kubectl rollout status deployment/keda-operator -n kube-system --timeout=60s
 KEDA `TriggerAuthentication` and `ScaledObject`:
 
 ```bash
-NAMESPACE=fabtech
-
-cat <<'EOF' | sed \
-  -e "s|__NAMESPACE__|$NAMESPACE|g" \
-  -e "s|__MI_CLIENT_ID__|$MI_CLIENT_ID|g" \
-  -e "s|__SB_NS__|$SB_NS|g" | kubectl apply -f -
+cat <<EOF | kubectl apply -f -
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
   name: fabtech-sb-auth
-  namespace: __NAMESPACE__
+  namespace: $NAMESPACE
 spec:
   podIdentity:
     provider: azure-workload   # NOT "azure-workload-identity"
-    identityId: "__MI_CLIENT_ID__"
+    identityId: "$MI_CLIENT_ID"
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
   name: fabtech-api-scaler
-  namespace: __NAMESPACE__
+  namespace: $NAMESPACE
 spec:
   scaleTargetRef:
     name: fabtech-api
@@ -176,7 +171,7 @@ spec:
   - type: azure-servicebus
     metadata:
       queueName: fabtech-jobs
-      namespace: __SB_NS__
+      namespace: $SB_NS
       messageCount: "5"
     authenticationRef:
       name: fabtech-sb-auth
