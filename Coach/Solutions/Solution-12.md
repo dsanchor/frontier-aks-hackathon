@@ -54,10 +54,12 @@
 RG=rg-frontier-aks
 CLUSTER_NAME=aks-frontier
 LOCATION=swedencentral
+NAMESPACE=fabtech
 
 # PRE-STEP: If the cluster was set up with App Routing Istio (Challenge 03),
 # the App Routing Istio integration must be disabled before enabling the mesh add-on.
 # This is required — the two implementations cannot coexist.
+
 az aks update \
   --resource-group $RG \
   --name $CLUSTER_NAME \
@@ -67,10 +69,12 @@ az aks update \
 az aks mesh get-revisions --location $LOCATION -o table
 
 # Enable managed Istio (use the latest asm revision shown above)
+REVISION=$(az aks mesh get-revisions --location $LOCATION -o tsv --query 'meshRevisions[-1].revision')
+echo "Latest Istio revision: $REVISION"
 az aks mesh enable \
   --resource-group $RG \
   --name $CLUSTER_NAME \
-  --revision asm-1-29
+  --revision $REVISION
 
 # Verify istiod pods are running
 kubectl get pods -n aks-istio-system
@@ -80,20 +84,17 @@ az aks mesh enable-ingress-gateway \
   --resource-group $RG \
   --name $CLUSTER_NAME \
   --ingress-gateway-type External
-
-# Get the new external IP
-kubectl get svc -n aks-istio-ingress
 ```
 
 Update the Gateway resource to use the `istio` GatewayClass (the mesh add-on's Gateway controller):
 
 ```yaml
-# fabtech-gateway.yaml
+cat <<EOF | kubectl apply -f -
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: fabtech-gateway
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   gatewayClassName: istio
   listeners:
@@ -103,31 +104,28 @@ spec:
     allowedRoutes:
       namespaces:
         from: Same
+EOF
 ```
 
-```bash
-kubectl apply -f fabtech-gateway.yaml
+In order to test the app, get the IP address of the Gateway and access to the web app on port 80 and http. The url would be:
 
-# Get the new gateway IP (different from the old App Routing IP)
-kubectl get gateway fabtech-gateway -n fabtech
-# Note: The Gateway controller creates a new LoadBalancer service and IP.
-# Update DNS or client configurations to use the new IP.
+```
+GATEWAY_IP_ADDRESS=$(kubectl get gateway fabtech-gateway -n "$NAMESPACE" \
+  --output jsonpath='{.status.addresses[0].value}')
+echo http://$GATEWAY_IP_ADDRESS
 ```
 
 ### Part 2: Enable Sidecar Injection
 
 ```bash
 # Label the namespace for automatic injection
-# Get the exact revision label first:
-REVISION=$(az aks mesh get-revisions --location $LOCATION -o tsv --query 'meshRevisions[-1].revision')
-echo "REVISION=$REVISION"
-kubectl label namespace fabtech istio.io/rev=$REVISION
+kubectl label namespace $NAMESPACE istio.io/rev=$REVISION
 
 # Restart application deployments ONLY (not the gateway deployment)
-kubectl rollout restart deployment/fabtech-api deployment/fabtech-web -n fabtech
+kubectl rollout restart deployment/fabtech-api deployment/fabtech-web -n $NAMESPACE
 
 # Verify sidecars — each pod should now show 2/2 containers (app + istio-proxy)
-kubectl get pods -n fabtech
+kubectl get pods -n $NAMESPACE
 ```
 
 > **Note:** `kubectl rollout restart deployment -n fabtech` restarts ALL deployments in the
@@ -135,37 +133,12 @@ kubectl get pods -n fabtech
 > revert to a placeholder image during the rollout. Prefer restarting only the app deployments
 > explicitly, and ensure Flux GitOps is suspended (or images are correct) before restarting.
 
-### Part 3: Configure mTLS (STRICT Mode)
-
-```yaml
-# peer-auth.yaml
-apiVersion: security.istio.io/v1
-kind: PeerAuthentication
-metadata:
-  name: default
-  namespace: fabtech
-spec:
-  mtls:
-    mode: STRICT
-```
-
-```bash
-kubectl apply -f peer-auth.yaml
-
-# Verify — traffic from a non-mesh pod should fail.
-# Run this from the default namespace so the pod is outside the mesh (no sidecar);
-# pods outside the mesh cannot reach a service protected by STRICT mTLS.
-kubectl run test-plain -n default --image=curlimages/curl --restart=Never -- \
-  curl -s http://fabtech-api.fabtech.svc.cluster.local:3001/api/health
-# Expected: connection reset or SSL handshake failure
-```
-
-### Part 4: Canary Traffic Split
+### Part 3: Canary Traffic Split
 
 First, patch the existing `fabtech-api` deployment to add the `version: v1` label:
 
 ```bash
-kubectl patch deployment fabtech-api -n fabtech --type=merge -p \
+kubectl patch deployment fabtech-api -n $NAMESPACE --type=merge -p \
   '{"spec":{"template":{"metadata":{"labels":{"version":"v1"}}}}}'
 ```
 
@@ -176,12 +149,12 @@ kubectl patch deployment fabtech-api -n fabtech --type=merge -p \
 Then deploy a v2 of the API (`app: fabtech-api`, `version: v2` labels):
 
 ```yaml
-# fabtech-api-v2-deployment.yaml
+cat <<EOF | kubectl apply -f -
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fabtech-api-v2
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   replicas: 1
   selector:
@@ -199,7 +172,7 @@ spec:
       serviceAccountName: fabtech-api-sa
       containers:
       - name: api
-        image: <ACR_NAME>.azurecr.io/fabtech-api:v2
+        image: $ACR_NAME.azurecr.io/fabtech-api:v2
         securityContext:
           runAsNonRoot: true
           runAsUser: 100
@@ -218,15 +191,16 @@ spec:
           readOnly: true
           volumeAttributes:
             secretProviderClass: fabtech-secrets
+EOF
 ```
 
 ```yaml
-# destination-rule.yaml
+cat <<EOF | kubectl apply -f -
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: fabtech-api
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   host: fabtech-api
   subsets:
@@ -242,7 +216,7 @@ apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: fabtech-api
-  namespace: fabtech
+  namespace: $NAMESPACE
 spec:
   hosts:
   - fabtech-api
@@ -256,15 +230,14 @@ spec:
         host: fabtech-api
         subset: v2
       weight: 20
+EOF
 ```
 
 ```bash
-kubectl apply -f destination-rule.yaml
-kubectl apply -f virtual-service.yaml
-
 # Generate traffic and observe split in Grafana
-for i in {1..50}; do
-  kubectl exec -n fabtech deploy/fabtech-web -- \
-    curl -s http://fabtech-api:3001/api/version
+for i in {1..30}; do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$GATEWAY_IP_ADDRESS/sessions.html)
+  echo "Request $i: HTTP $STATUS"
+  sleep 1
 done
 ```
